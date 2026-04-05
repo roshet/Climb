@@ -30,7 +30,11 @@ function ChatApp() {
 
   useEffect(() => {
     fetch(`http://localhost:${port}/player`)
-      .then(r => { setIsSetup(r.ok) })
+      .then(r => {
+        if (r.status === 404) { setIsSetup(false); return }
+        if (r.ok)             { setIsSetup(true);  return }
+        setIsSetup(null) // 5xx or unexpected: stay in "Starting..." state
+      })
       .catch(() => setIsSetup(null))
   }, [port])
 
