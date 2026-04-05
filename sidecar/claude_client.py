@@ -1,43 +1,48 @@
 from sqlalchemy.orm import Session
-import anthropic
+from google import genai
+from google.genai import types
 from database import get_matches, get_pivotal_moments
 
-TOOLS = [
-    {
-        "name": "get_matches",
-        "description": "Query the player's match history. Returns matches filtered by champion, result, and/or date range.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "champion": {"type": "string", "description": "Filter by champion name, e.g. 'Jinx'"},
-                "result": {"type": "string", "enum": ["win", "loss"], "description": "Filter by game result"},
-                "last_n": {"type": "integer", "description": "Number of most recent matches to return (default 20)"},
+TOOL_DECLARATIONS = [
+    types.FunctionDeclaration(
+        name="get_matches",
+        description="Query the player's match history. Returns matches filtered by champion, result, and/or recency.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "champion": types.Schema(type=types.Type.STRING, description="Filter by champion name, e.g. 'Jinx'"),
+                "result":   types.Schema(type=types.Type.STRING, description="Filter by game result: 'win' or 'loss'"),
+                "last_n":   types.Schema(type=types.Type.INTEGER, description="Number of most recent matches to return (default 20)"),
             }
-        }
-    },
-    {
-        "name": "get_pivotal_moments",
-        "description": "Get the pivotal moments and counterfactuals for specific match IDs.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "match_ids": {"type": "array", "items": {"type": "string"}, "description": "List of match IDs"}
+        )
+    ),
+    types.FunctionDeclaration(
+        name="get_pivotal_moments",
+        description="Get the pivotal moments and counterfactuals for specific match IDs.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "match_ids": types.Schema(
+                    type=types.Type.ARRAY,
+                    items=types.Schema(type=types.Type.STRING),
+                    description="List of match IDs",
+                )
             },
-            "required": ["match_ids"]
-        }
-    },
-    {
-        "name": "get_champion_stats",
-        "description": "Get aggregated stats for a specific champion over the player's recent games.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "champion": {"type": "string", "description": "Champion name"},
-                "last_n": {"type": "integer", "description": "Number of recent games to include (default 20)"}
+            required=["match_ids"]
+        )
+    ),
+    types.FunctionDeclaration(
+        name="get_champion_stats",
+        description="Get aggregated stats for a specific champion over the player's recent games.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "champion": types.Schema(type=types.Type.STRING, description="Champion name"),
+                "last_n":   types.Schema(type=types.Type.INTEGER, description="Number of recent games to include (default 20)"),
             },
-            "required": ["champion"]
-        }
-    }
+            required=["champion"]
+        )
+    ),
 ]
 
 
@@ -80,7 +85,8 @@ def _format_moments(moments) -> str:
 
 class ClaudeClient:
     def __init__(self, api_key: str, db: Session):
-        self.client = anthropic.Anthropic(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = "gemini-1.5-flash"
         self.db = db
 
     def _handle_tool(self, tool_name: str, tool_input: dict) -> str:
@@ -120,32 +126,46 @@ class ClaudeClient:
         if match_context:
             system += f"\n\nCurrent game context:\n{match_context}"
 
-        api_messages = list(messages)
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            tools=[types.Tool(function_declarations=TOOL_DECLARATIONS)],
+        )
 
+        # Convert stored messages to Gemini history format (all but the last)
+        # Gemini uses "model" instead of "assistant"
+        history = []
+        for msg in messages[:-1]:
+            role = "model" if msg["role"] == "assistant" else "user"
+            history.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
+
+        chat_session = self.client.chats.create(
+            model=self.model_name,
+            config=config,
+            history=history,
+        )
+        response = chat_session.send_message(messages[-1]["content"])
+
+        # Tool use loop — keep going until no function calls remain
         while True:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-5",
-                max_tokens=1024,
-                system=system,
-                tools=TOOLS,
-                messages=api_messages,
-            )
+            function_calls = [
+                part for part in response.candidates[0].content.parts
+                if part.function_call is not None
+            ]
+            if not function_calls:
+                break
 
-            if response.stop_reason == "end_turn":
-                return "".join(block.text for block in response.content if hasattr(block, "text"))
+            tool_response_parts = []
+            for part in function_calls:
+                fn = part.function_call
+                result = self._handle_tool(fn.name, dict(fn.args))
+                tool_response_parts.append(
+                    types.Part(
+                        function_response=types.FunctionResponse(
+                            name=fn.name,
+                            response={"result": result},
+                        )
+                    )
+                )
+            response = chat_session.send_message(tool_response_parts)
 
-            # Handle tool use
-            tool_uses = [block for block in response.content if block.type == "tool_use"]
-            if not tool_uses:
-                return "".join(block.text for block in response.content if hasattr(block, "text"))
-
-            api_messages.append({"role": "assistant", "content": response.content})
-            tool_results = []
-            for tool_use in tool_uses:
-                result = self._handle_tool(tool_use.name, tool_use.input)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_use.id,
-                    "content": result,
-                })
-            api_messages.append({"role": "user", "content": tool_results})
+        return response.text

@@ -24,13 +24,13 @@ from timeline_analyzer import analyze_timeline
 load_dotenv()
 
 RIOT_API_KEY = os.environ["RIOT_API_KEY"]
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 REGION = os.environ.get("REGION", "NA1")
 
 engine = init_db("analyst.db")
 db = Session(engine)
 riot = RiotClient(api_key=RIOT_API_KEY, region=REGION)
-claude = ClaudeClient(api_key=ANTHROPIC_API_KEY, db=db)
+claude = ClaudeClient(api_key=GEMINI_API_KEY, db=db)
 
 _watcher_task: Optional[asyncio.Task] = None
 
