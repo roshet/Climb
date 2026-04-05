@@ -9,7 +9,6 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
-    "baseUrl": "."
   },
   "include": ["src/**/*", "electron/**/*"],
   "exclude": ["node_modules", "dist"]
