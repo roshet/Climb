@@ -1,7 +1,7 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import create_engine, String, Integer, DateTime, JSON, ForeignKey, Text
+from sqlalchemy import create_engine, String, Integer, DateTime, JSON, ForeignKey, Text, Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session, relationship
 
 
@@ -44,7 +44,7 @@ class ChatMessage(Base):
     match_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     role: Mapped[str] = mapped_column(String)
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Player(Base):
@@ -61,10 +61,10 @@ class AppState(Base):
     value: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 
-def init_db(db_path: str = "analyst.db") -> Session:
+def init_db(db_path: str = "analyst.db") -> Engine:
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
-    return Session(engine)
+    return engine
 
 
 # --- Match queries ---
@@ -111,7 +111,7 @@ def get_chat_history(db: Session, session_id: str) -> list[ChatMessage]:
 # --- Player queries ---
 
 def save_player(db: Session, summoner_name: str, puuid: str, region: str) -> None:
-    db.merge(Player(summoner_name=summoner_name, riot_puuid=puuid, region=region, last_synced_at=datetime.utcnow()))
+    db.merge(Player(summoner_name=summoner_name, riot_puuid=puuid, region=region, last_synced_at=datetime.now(timezone.utc)))
     db.commit()
 
 
