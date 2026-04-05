@@ -108,13 +108,13 @@ async function pollStatus() {
   try {
     const res = await fetch(`${SIDECAR_URL}/status`)
     if (!res.ok) return
-    const data = await res.json() as { pending_popup: string | null; open_chat: boolean }
+    const data = await res.json() as { pending_popup: string | null; open_chat: string | null }
     if (data.pending_popup) {
       showPopup(data.pending_popup)
       await fetch(`${SIDECAR_URL}/status/clear`, { method: 'POST' })
     }
-    if (data.open_chat) {
-      createChatWindow()
+    if (data.open_chat !== null && data.open_chat !== undefined) {
+      createChatWindow(data.open_chat || undefined)
     }
   } catch {
     // Sidecar not ready yet

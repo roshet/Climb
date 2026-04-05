@@ -39,13 +39,17 @@ function PopupApp() {
   useEffect(() => {
     if (!matchId) { setLoading(false); return }
     fetch(`http://localhost:${port}/analysis/${matchId}`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('not ok'); return r.json() })
       .then(data => { setAnalysis(data); setLoading(false) })
       .catch(() => setLoading(false))
   }, [matchId, port])
 
   const openChat = () => {
-    fetch(`http://localhost:${port}/open-chat`, { method: 'POST' })
+    fetch(`http://localhost:${port}/open-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ match_id: matchId }),
+    })
   }
 
   if (loading) {

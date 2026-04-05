@@ -35,6 +35,7 @@ function ChatApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: SESSION_ID, message: text, match_id: matchId }),
       })
+      if (!res.ok) throw new Error('sidecar error')
       const data = await res.json() as { response: string }
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
     } catch {

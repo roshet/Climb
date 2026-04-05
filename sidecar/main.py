@@ -121,11 +121,12 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 def status():
     pending = get_pending_popup(db)
     open_chat_row = db.query(AppState).filter(AppState.key == "open_chat").first()
-    open_chat = open_chat_row is not None and open_chat_row.value == "1"
-    if open_chat:
+    open_chat_match_id: Optional[str] = None
+    if open_chat_row is not None:
+        open_chat_match_id = open_chat_row.value or None
         db.query(AppState).filter(AppState.key == "open_chat").delete()
         db.commit()
-    return {"pending_popup": pending, "open_chat": open_chat}
+    return {"pending_popup": pending, "open_chat": open_chat_match_id}
 
 
 @app.post("/status/clear")
@@ -211,9 +212,13 @@ async def setup(req: SetupRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class OpenChatRequest(BaseModel):
+    match_id: Optional[str] = None
+
+
 @app.post("/open-chat")
-def open_chat_signal():
-    db.merge(AppState(key="open_chat", value="1"))
+def open_chat_signal(req: OpenChatRequest):
+    db.merge(AppState(key="open_chat", value=req.match_id or ""))
     db.commit()
     return {"ok": True}
 
