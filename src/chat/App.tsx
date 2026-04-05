@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
+import { Setup } from './Setup'
 import '../index.css'
 
 declare global {
@@ -16,6 +17,7 @@ interface Message {
 const SESSION_ID = `session-${Date.now()}`
 
 function ChatApp() {
+  const [isSetup, setIsSetup] = useState<boolean | null>(null)
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: "Hi! I'm your personal LoL analyst. Ask me anything about your games — patterns, mistakes, champion performance, or what to focus on to climb." }
   ])
@@ -25,6 +27,12 @@ function ChatApp() {
   )
 
   const port = window.sidecar?.port ?? '8765'
+
+  useEffect(() => {
+    fetch(`http://localhost:${port}/player`)
+      .then(r => { setIsSetup(r.ok) })
+      .catch(() => setIsSetup(null))
+  }, [port])
 
   const sendMessage = useCallback(async (text: string) => {
     setMessages(prev => [...prev, { role: 'user', content: text }])
@@ -44,6 +52,18 @@ function ChatApp() {
       setLoading(false)
     }
   }, [port, matchId])
+
+  if (isSetup === null) {
+    return (
+      <div className="bg-[#1a1a2e] h-screen flex items-center justify-center">
+        <p className="text-gray-500 text-sm">Starting...</p>
+      </div>
+    )
+  }
+
+  if (!isSetup) {
+    return <Setup port={port} onComplete={() => setIsSetup(true)} />
+  }
 
   return (
     <div className="bg-[#1a1a2e] h-screen flex flex-col text-white font-sans">

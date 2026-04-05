@@ -135,6 +135,14 @@ def clear_status():
     return {"ok": True}
 
 
+@app.get("/player")
+def get_player_profile():
+    player = get_player(db)
+    if not player:
+        raise HTTPException(status_code=404, detail="No player profile")
+    return {"summoner_name": player.summoner_name, "region": player.region}
+
+
 @app.get("/analysis/{match_id}")
 def get_analysis(match_id: str):
     matches = get_matches(db, last_n=50)
