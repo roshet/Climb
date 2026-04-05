@@ -1,8 +1,14 @@
 node_modules/
 dist/
+release/
+out/
 .env
 __pycache__/
 *.pyc
 sidecar/venv/
 *.db
 .pytest_cache/
+.DS_Store
+Thumbs.db
+.coverage
+htmlcov/
