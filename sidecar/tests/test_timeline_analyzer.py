@@ -195,6 +195,21 @@ def test_death_execute():
     assert len(deaths) == 1
     assert "executed" in deaths[0].description
 
+def test_death_execute_near_own_turret():
+    # killerId=0 near Blue top turret (981, 10441) — still "executed", not "tower dived"
+    timeline = {"info": {"frames": [
+        make_frame(300000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300000,
+             "killerId": 0, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 981, "y": 10441}}  # exactly on turret
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "executed" in deaths[0].description
+
 def test_sorted_by_gold_impact_descending():
     timeline = {"info": {"frames": [
         make_frame(900000, [
