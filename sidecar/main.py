@@ -19,7 +19,7 @@ from database import (
     save_pivotal_moments, save_player, set_pending_popup,
 )
 from riot_client import RiotClient, REGIONAL_ROUTING
-from timeline_analyzer import analyze_timeline
+from timeline_analyzer import analyze_timeline, TEAM_100_IDS
 
 load_dotenv()
 
@@ -39,10 +39,16 @@ async def game_end_watcher():
     """Poll Live Client API. When in-game state drops, trigger analysis."""
     was_in_game = False
     while True:
-        in_game = await riot.is_in_game()
-        if was_in_game and not in_game:
-            await run_post_game_analysis()
-        was_in_game = in_game
+        try:
+            in_game = await riot.is_in_game()
+            if in_game != was_in_game:
+                print(f"[watcher] in_game state changed: {was_in_game} -> {in_game}")
+            if was_in_game and not in_game:
+                print("[watcher] Game ended, running analysis...")
+                await run_post_game_analysis()
+            was_in_game = in_game
+        except Exception as e:
+            print(f"[watcher] Unexpected error: {e}")
         await asyncio.sleep(5)
 
 
@@ -68,6 +74,16 @@ async def run_post_game_analysis():
         participant = next(p for p in participants if p["puuid"] == puuid)
         participant_index = participants.index(participant) + 1  # 1-indexed
 
+        # Resolve enemy jungler by Smite (summoner spell ID 11)
+        SMITE_ID = 11
+        player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else set(range(6, 11))
+        enemy_participants = [p for p in participants if participants.index(p) + 1 not in player_team_ids]
+        enemy_jungler = next(
+            (p for p in enemy_participants if p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID),
+            None,
+        )
+        enemy_jungler_id = participants.index(enemy_jungler) + 1 if enemy_jungler else None
+
         save_match(db, {
             "match_id": match_id,
             "played_at": datetime.fromtimestamp(info["gameStartTimestamp"] / 1000, tz=timezone.utc),
@@ -82,7 +98,7 @@ async def run_post_game_analysis():
             "raw_timeline": timeline_data,
         })
 
-        moments = analyze_timeline(timeline_data, participant_id=participant_index)
+        moments = analyze_timeline(timeline_data, participant_id=participant_index, enemy_jungler_id=enemy_jungler_id)
         enriched = enrich_moments(moments)
         save_pivotal_moments(db, match_id, [
             {
