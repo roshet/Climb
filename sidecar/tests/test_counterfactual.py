@@ -44,3 +44,57 @@ def test_preserves_order():
     moments = [make_moment("death", timestamp_secs=i * 60) for i in range(3)]
     enriched = enrich_moments(moments)
     assert [m.timestamp_secs for m in enriched] == [m.timestamp_secs for m in moments]
+
+def test_tower_dive_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=300, moment_type="death",
+        description="You were tower dived at 5:00.",
+        counterfactual="", gold_impact=300
+    )]
+    enriched = enrich_moments(moments)
+    assert "tower" in enriched[0].counterfactual.lower()
+
+def test_ganked_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=300, moment_type="death",
+        description="You were ganked at 5:00.",
+        counterfactual="", gold_impact=300
+    )]
+    enriched = enrich_moments(moments)
+    assert "minimap" in enriched[0].counterfactual.lower() or "jungler" in enriched[0].counterfactual.lower()
+
+def test_outnumbered_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=480, moment_type="death",
+        description="You were caught 3v1 at 8:00.",
+        counterfactual="", gold_impact=300
+    )]
+    enriched = enrich_moments(moments)
+    assert "outnumbered" in enriched[0].counterfactual.lower() or "disengage" in enriched[0].counterfactual.lower()
+
+def test_1v1_loss_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=480, moment_type="death",
+        description="You lost a 1v1 at 8:00.",
+        counterfactual="", gold_impact=300
+    )]
+    enriched = enrich_moments(moments)
+    assert "1v1" in enriched[0].counterfactual.lower() or "matchup" in enriched[0].counterfactual.lower()
+
+def test_solo_kill_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=480, moment_type="solo_kill",
+        description="You got a solo kill at 8:00.",
+        counterfactual="", gold_impact=300
+    )]
+    enriched = enrich_moments(moments)
+    assert len(enriched[0].counterfactual) > 0
+
+def test_objective_secured_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=1200, moment_type="objective_secured",
+        description="Your team secured Baron Nashor at 20:00.",
+        counterfactual="", gold_impact=900
+    )]
+    enriched = enrich_moments(moments)
+    assert len(enriched[0].counterfactual) > 0
