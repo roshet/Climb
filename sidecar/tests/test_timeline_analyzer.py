@@ -59,6 +59,82 @@ def test_returns_top_5_max():
     moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
     assert len(moments) <= 5
 
+def test_death_tower_dive():
+    # Blue turret at (981, 10441) — death within 1000 units
+    timeline = {"info": {"frames": [
+        make_frame(300000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300000,
+             "killerId": 6, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 1200, "y": 10300}}  # ~340 units from (981, 10441)
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "tower dived" in deaths[0].description
+
+def test_death_ganked_before_14min():
+    # Enemy jungler (participant 10) kills player at 5:00
+    timeline = {"info": {"frames": [
+        make_frame(300000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300000,
+             "killerId": 10, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [7],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID, enemy_jungler_id=10)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "ganked" in deaths[0].description
+
+def test_death_not_ganked_after_14min():
+    # Same event but at 15:00 → outnumbered, not ganked
+    timeline = {"info": {"frames": [
+        make_frame(900000, [
+            {"type": "CHAMPION_KILL", "timestamp": 900000,
+             "killerId": 10, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [7],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID, enemy_jungler_id=10)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "ganked" not in deaths[0].description
+    assert "v1" in deaths[0].description
+
+def test_death_outnumbered():
+    # 2 enemies involved (no jungler context)
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": 7, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [8],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "v1" in deaths[0].description
+
+def test_death_1v1_loss():
+    # Exactly one enemy, no assists
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": 7, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "1v1" in deaths[0].description
+
 def test_sorted_by_gold_impact_descending():
     timeline = {"info": {"frames": [
         make_frame(900000, [
