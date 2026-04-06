@@ -19,7 +19,7 @@ from database import (
     save_pivotal_moments, save_player, set_pending_popup,
 )
 from riot_client import RiotClient, REGIONAL_ROUTING
-from timeline_analyzer import analyze_timeline, TEAM_100_IDS
+from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 
 load_dotenv()
 
@@ -76,13 +76,14 @@ async def run_post_game_analysis():
 
         # Resolve enemy jungler by Smite (summoner spell ID 11)
         SMITE_ID = 11
-        player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else set(range(6, 11))
-        enemy_participants = [p for p in participants if participants.index(p) + 1 not in player_team_ids]
-        enemy_jungler = next(
-            (p for p in enemy_participants if p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID),
+        player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
+        enemy_jungler_entry = next(
+            ((i + 1, p) for i, p in enumerate(participants)
+             if (i + 1) not in player_team_ids
+             and (p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID)),
             None,
         )
-        enemy_jungler_id = participants.index(enemy_jungler) + 1 if enemy_jungler else None
+        enemy_jungler_id = enemy_jungler_entry[0] if enemy_jungler_entry else None
 
         save_match(db, {
             "match_id": match_id,

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from database import init_db, get_player, Session, set_pending_popup, save_match, save_pivotal_moments
 from riot_client import RiotClient
-from timeline_analyzer import analyze_timeline, TEAM_100_IDS
+from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 from counterfactual import enrich_moments
 from datetime import datetime, timezone
 
@@ -25,13 +25,14 @@ async def main():
     participant = next(p for p in participants if p['puuid'] == player.riot_puuid)
     participant_index = participants.index(participant) + 1
 
-    player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else set(range(6, 11))
-    enemy_participants = [p for p in participants if participants.index(p) + 1 not in player_team_ids]
-    enemy_jungler = next(
-        (p for p in enemy_participants if p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID),
+    player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
+    enemy_jungler_entry = next(
+        ((i + 1, p) for i, p in enumerate(participants)
+         if (i + 1) not in player_team_ids
+         and (p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID)),
         None,
     )
-    enemy_jungler_id = participants.index(enemy_jungler) + 1 if enemy_jungler else None
+    enemy_jungler_id = enemy_jungler_entry[0] if enemy_jungler_entry else None
     print(f'Enemy jungler participant ID: {enemy_jungler_id}')
 
     save_match(db, {
