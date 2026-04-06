@@ -88,7 +88,7 @@ def test_solo_kill_counterfactual():
         counterfactual="", gold_impact=300
     )]
     enriched = enrich_moments(moments)
-    assert len(enriched[0].counterfactual) > 0
+    assert "1v1" in enriched[0].counterfactual.lower()
 
 def test_objective_secured_counterfactual():
     moments = [PivotalMomentData(
@@ -97,4 +97,13 @@ def test_objective_secured_counterfactual():
         counterfactual="", gold_impact=900
     )]
     enriched = enrich_moments(moments)
-    assert len(enriched[0].counterfactual) > 0
+    assert "macro" in enriched[0].counterfactual.lower() or "objective" in enriched[0].counterfactual.lower()
+
+def test_objective_missed_dragon_counterfactual():
+    moments = [PivotalMomentData(
+        timestamp_secs=600, moment_type="objective_missed",
+        description="Enemy team secured Dragon Soul at 10:00.",
+        counterfactual="", gold_impact=350
+    )]
+    enriched = enrich_moments(moments)
+    assert "dragon" in enriched[0].counterfactual.lower() or "soul" in enriched[0].counterfactual.lower()

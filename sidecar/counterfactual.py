@@ -11,47 +11,48 @@ def _counterfactual_for_death(moment: PivotalMomentData) -> str:
             "the tower edge and having an escape ready denies the dive."
         )
 
-    if "ganked" in desc:
+    elif "ganked" in desc:
         return (
             "Your opponent had jungle help here. Check your minimap before extending — if "
             "the enemy jungler isn't visible on the map, assume they could be in your lane. "
             "Ward tri-bush and river to spot this earlier."
         )
 
-    if "1v1" in desc:
+    elif "1v1" in desc:
         return (
             "You lost a straight-up 1v1. Consider whether your champion wins this matchup "
             "at your current item level, or play for farm over fighting until you have "
             "your power spike."
         )
 
-    if "v1" in desc:
+    elif "v1" in desc:
         return (
             "Fighting outnumbered is almost never correct. Disengage early when you see "
             "multiple enemies collapsing — the longer you stay, the worse your odds. "
             "A flash to safety is worth more than trying to trade back."
         )
 
-    # Fallback for any unclassified death
-    mins = moment.timestamp_secs // 60
-    if mins < 10:
-        return (
-            f"Dying at {mins} minutes in the early game is high cost — you missed CS, "
-            f"XP, and gave your opponent a lead. Playing safer or recalling when low "
-            f"would have preserved your lane advantage."
-        )
-    elif mins < 20:
-        return (
-            f"This death at {mins} minutes likely disrupted your team's mid-game tempo. "
-            f"Fights in this window often decide which team gets the first major objective. "
-            f"Consider whether the fight was necessary or if backing was the safer call."
-        )
     else:
-        return (
-            f"Late-game deaths at {mins} minutes can be game-ending — respawn timers are long "
-            f"and the enemy can convert a kill into an inhibitor or Baron. "
-            f"Staying grouped and avoiding solo plays is the highest-value choice here."
-        )
+        # Fallback for any unclassified death
+        mins = moment.timestamp_secs // 60
+        if mins < 10:
+            return (
+                f"Dying at {mins} minutes in the early game is high cost — you missed CS, "
+                f"XP, and gave your opponent a lead. Playing safer or recalling when low "
+                f"would have preserved your lane advantage."
+            )
+        elif mins < 20:
+            return (
+                f"This death at {mins} minutes likely disrupted your team's mid-game tempo. "
+                f"Fights in this window often decide which team gets the first major objective. "
+                f"Consider whether the fight was necessary or if backing was the safer call."
+            )
+        else:
+            return (
+                f"Late-game deaths at {mins} minutes can be game-ending — respawn timers are long "
+                f"and the enemy can convert a kill into an inhibitor or Baron. "
+                f"Staying grouped and avoiding solo plays is the highest-value choice here."
+            )
 
 
 def _counterfactual_for_objective_missed(moment: PivotalMomentData) -> str:
