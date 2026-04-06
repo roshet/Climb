@@ -135,6 +135,66 @@ def test_death_1v1_loss():
     assert len(deaths) == 1
     assert "1v1" in deaths[0].description
 
+def test_solo_kill():
+    # Player kills an enemy with no assists
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": PARTICIPANT_ID, "victimId": 7,
+             "assistingParticipantIds": [],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    kills = [m for m in moments if m.moment_type == "solo_kill"]
+    assert len(kills) == 1
+    assert "solo kill" in kills[0].description
+
+def test_solo_kill_not_detected_with_assists():
+    # Player kills enemy but had assists — not a solo kill
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": PARTICIPANT_ID, "victimId": 7,
+             "assistingParticipantIds": [2],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    kills = [m for m in moments if m.moment_type == "solo_kill"]
+    assert len(kills) == 0
+
+def test_objective_secured():
+    # Player's team (team 100, participants 1-5) kills Baron
+    timeline = {"info": {"frames": [
+        make_frame(1200000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 1200000,
+             "killerId": 3,  # teammate on team 100
+             "monsterType": "BARON_NASHOR",
+             "position": {"x": 5007, "y": 10471}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    secured = [m for m in moments if m.moment_type == "objective_secured"]
+    assert len(secured) == 1
+    assert "Baron" in secured[0].description
+    assert secured[0].gold_impact == 900
+
+def test_death_execute():
+    # killerId=0 (tower/environment finish, no assisting champions)
+    timeline = {"info": {"frames": [
+        make_frame(300000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300000,
+             "killerId": 0, "victimId": PARTICIPANT_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
+    deaths = [m for m in moments if m.moment_type == "death"]
+    assert len(deaths) == 1
+    assert "executed" in deaths[0].description
+
 def test_sorted_by_gold_impact_descending():
     timeline = {"info": {"frames": [
         make_frame(900000, [

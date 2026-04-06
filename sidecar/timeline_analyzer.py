@@ -81,6 +81,16 @@ def _classify_death(
     assisters = event.get("assistingParticipantIds", [])
     total_enemies = len(set([killer_id] + list(assisters)) - {0})
 
+    # killerId == 0 means tower/environment finish with no champion credit
+    if killer_id == 0 and not assisters:
+        return PivotalMomentData(
+            timestamp_secs=ts,
+            moment_type="death",
+            description=f"You were executed at {time_str}.",
+            counterfactual="",
+            gold_impact=GOLD_VALUES["DEATH"],
+        )
+
     # Priority 1: tower dive
     if _near_friendly_turret(position, participant_id):
         return PivotalMomentData(
@@ -181,7 +191,7 @@ def _score_solo_kill(event: dict, participant_id: int) -> PivotalMomentData | No
         moment_type="solo_kill",
         description=f"You got a solo kill at {mins}:{secs:02d}.",
         counterfactual="",
-        gold_impact=300,
+        gold_impact=GOLD_VALUES["DEATH"],
     )
 
 
