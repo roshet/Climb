@@ -79,3 +79,68 @@ def test_counter_ganked_requires_enemy_jungler():
     moments = analyze_jungle(timeline, participant_id=JUNGLE_ID, enemy_jungler_id=None)
     counter_ganks = [m for m in moments if m.moment_type == "counter_ganked"]
     assert len(counter_ganks) == 0
+
+
+def test_gank_assist_in_lane():
+    # Jungler assists a kill in bot lane (y=2000)
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": 2, "victimId": 7,  # teammate kills enemy
+             "assistingParticipantIds": [JUNGLE_ID],  # jungler assisted
+             "position": {"x": 8000, "y": 2000}}  # bot lane
+        ]),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    ganks = [m for m in moments if m.moment_type == "gank_assist"]
+    assert len(ganks) == 1
+    assert "ganked" in ganks[0].description.lower() or "kill" in ganks[0].description.lower()
+
+
+def test_gank_assist_not_in_jungle():
+    # Jungler kills enemy but in jungle (not a lane gank)
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": JUNGLE_ID, "victimId": 7,
+             "assistingParticipantIds": [],
+             "position": {"x": 5000, "y": 5000}}  # mid-map, not in a lane
+        ]),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    ganks = [m for m in moments if m.moment_type == "gank_assist"]
+    assert len(ganks) == 0
+
+
+def test_dragon_stack_secured():
+    # Player's team (team 100) secures Dragon
+    timeline = {"info": {"frames": [
+        make_frame(325000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 323000,
+             "killerId": 3,  # teammate on team 100
+             "monsterType": "DRAGON",
+             "position": {"x": 9866, "y": 4414}}
+        ]),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    stacks = [m for m in moments if m.moment_type == "dragon_stack"]
+    assert len(stacks) == 1
+    assert "Dragon" in stacks[0].description
+    assert stacks[0].gold_impact == 350
+
+
+def test_baron_secured():
+    # Player's team (team 100) secures Baron
+    timeline = {"info": {"frames": [
+        make_frame(1205000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 1203000,
+             "killerId": 1,  # jungler themselves smites Baron
+             "monsterType": "BARON_NASHOR",
+             "position": {"x": 5007, "y": 10471}}
+        ]),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    secured = [m for m in moments if m.moment_type == "baron_secured"]
+    assert len(secured) == 1
+    assert "Baron" in secured[0].description
+    assert secured[0].gold_impact == 900

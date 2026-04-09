@@ -40,7 +40,7 @@ def _in_ally_lane(position: dict, participant_id: int) -> bool:
     return (
         px < TOP_LANE_X_MAX          # near top lane (left edge)
         or py < BOT_LANE_Y_MAX       # near bot lane (bottom edge)
-        or abs(px - py) < 3000       # near mid lane diagonal
+        or (abs(px - py) < 3000 and px > 5000 and py > 5000)  # near mid lane diagonal (away from blue base)
     )
 
 
@@ -153,7 +153,25 @@ def _detect_counter_ganked(
 
 
 def _detect_gank_assist(event: dict, participant_id: int) -> PivotalMomentData | None:
-    pass  # implemented in Task 4
+    killer_id = event.get("killerId", 0)
+    assisters = event.get("assistingParticipantIds", [])
+    if killer_id != participant_id and participant_id not in assisters:
+        return None
+    victim_id = event.get("victimId", 0)
+    if victim_id == participant_id or victim_id == 0:
+        return None
+    position = event.get("position", {"x": 0, "y": 0})
+    if not _in_ally_lane(position, participant_id):
+        return None
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="gank_assist",
+        description=f"You ganked and got a kill at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
 
 
 def _detect_dragon_missed(event: dict, frames: list, participant_id: int, last_death_ts: int | None) -> PivotalMomentData | None:
@@ -169,8 +187,34 @@ def _detect_void_grubs_missed(event: dict) -> PivotalMomentData | None:
 
 
 def _detect_dragon_stack(event: dict, participant_id: int) -> PivotalMomentData | None:
-    pass  # implemented in Task 4
+    if event.get("monsterType") != "DRAGON":
+        return None
+    player_team = TEAM_100_IDS if participant_id in TEAM_100_IDS else TEAM_200_IDS
+    if event.get("killerId", 0) not in player_team:
+        return None
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="dragon_stack",
+        description=f"Your team secured Dragon at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DRAGON"],
+    )
 
 
 def _detect_baron_secured(event: dict, participant_id: int) -> PivotalMomentData | None:
-    pass  # implemented in Task 4
+    if event.get("monsterType") != "BARON_NASHOR":
+        return None
+    player_team = TEAM_100_IDS if participant_id in TEAM_100_IDS else TEAM_200_IDS
+    if event.get("killerId", 0) not in player_team:
+        return None
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="baron_secured",
+        description=f"Your team secured Baron Nashor at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["BARON_NASHOR"],
+    )
