@@ -4,7 +4,6 @@ load_dotenv()
 from database import init_db, get_player, Session, set_pending_popup, save_match, save_pivotal_moments
 from riot_client import RiotClient
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
-from counterfactual import enrich_moments
 from datetime import datetime, timezone
 
 SMITE_ID = 11
@@ -33,6 +32,9 @@ async def main():
     participants = info['participants']
     participant = next(p for p in participants if p['puuid'] == player.riot_puuid)
     participant_index = participants.index(participant) + 1
+    role = participant.get('teamPosition', 'UNKNOWN')
+    champion = participant['championName']
+    print(f'Role: {role}, Champion: {champion}')
 
     player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
     enemy_jungler_entry = next(
@@ -58,8 +60,20 @@ async def main():
         'raw_timeline': timeline_data,
     })
 
-    moments = analyze_timeline(timeline_data, participant_id=participant_index, enemy_jungler_id=enemy_jungler_id)
-    enriched = enrich_moments(moments)
+    moments = analyze_timeline(timeline_data, participant_id=participant_index, enemy_jungler_id=enemy_jungler_id, role=role, champion=champion)
+    from claude_client import ClaudeClient
+    claude = ClaudeClient(api_key=os.environ['GEMINI_API_KEY'], db=db)
+    side = 'blue' if participant_index in TEAM_100_IDS else 'red'
+    game_context = {
+        'participant_id': participant_index,
+        'champion': champion,
+        'role': role,
+        'side': side,
+        'result': 'win' if participant['win'] else 'loss',
+        'kda': f"{participant['kills']}/{participant['deaths']}/{participant['assists']}",
+        'duration_secs': info['gameDuration'],
+    }
+    enriched = claude.generate_coaching_notes(moments, game_context, timeline_data)
     save_pivotal_moments(db, match_id, [
         {'timestamp_secs': m.timestamp_secs, 'moment_type': m.moment_type,
          'description': m.description, 'counterfactual': m.counterfactual,
