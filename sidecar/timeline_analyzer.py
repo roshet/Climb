@@ -220,7 +220,13 @@ def analyze_timeline(
     timeline: dict,
     participant_id: int,
     enemy_jungler_id: int | None = None,
+    role: str = "UNKNOWN",
+    champion: str = "Unknown",
 ) -> list[PivotalMomentData]:
+    if role == "JUNGLE":
+        from jungle_analyzer import analyze_jungle
+        return analyze_jungle(timeline, participant_id, enemy_jungler_id)
+
     moments: list[PivotalMomentData] = []
     frames = timeline.get("info", {}).get("frames", [])
 
