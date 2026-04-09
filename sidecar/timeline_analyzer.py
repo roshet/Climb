@@ -241,5 +241,5 @@ def analyze_timeline(
             if moment:
                 moments.append(moment)
 
-    moments.sort(key=lambda m: m.gold_impact, reverse=True)
-    return moments[:5]
+    moments.sort(key=lambda m: m.timestamp_secs)
+    return moments

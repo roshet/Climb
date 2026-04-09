@@ -15,7 +15,16 @@ async def main():
     player = get_player(db)
     riot = RiotClient(api_key=os.environ['RIOT_API_KEY'], region=os.environ.get('REGION', 'NA1'))
 
-    match_id = 'NA1_5531314507'
+    match_ids = await riot.get_recent_match_ids(player.riot_puuid, count=5)
+    if not match_ids:
+        print('No recent matches found.')
+        await riot.close()
+        return
+    print('Recent matches:')
+    for i, mid in enumerate(match_ids):
+        print(f'  [{i}] {mid}')
+    match_id = match_ids[0]
+    print(f'\nUsing most recent: {match_id}')
     print(f'Fetching match {match_id}...')
     match_data = await riot.get_match(match_id)
     timeline_data = await riot.get_timeline(match_id)

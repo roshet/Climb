@@ -26,7 +26,7 @@ class RiotClient:
 
     async def get_recent_match_ids(self, puuid: str, count: int = 20) -> list[str]:
         url = f"https://{self.regional}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
-        r = await self._http.get(url, params={"count": count, "queue": 420})
+        r = await self._http.get(url, params={"count": count})
         r.raise_for_status()
         return r.json()
 
@@ -46,7 +46,7 @@ class RiotClient:
         try:
             r = await self._live_http.get("https://127.0.0.1:2999/liveclientdata/allgamedata")
             return r.status_code == 200
-        except (httpx.ConnectError, httpx.TimeoutException):
+        except Exception:
             return False
 
     async def close(self):

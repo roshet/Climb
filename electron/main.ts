@@ -3,8 +3,8 @@ import path from 'path'
 import { spawn, ChildProcess } from 'child_process'
 
 const SIDECAR_PORT = process.env.SIDECAR_PORT || '8765'
-const SIDECAR_URL = `http://localhost:${SIDECAR_PORT}`
-const isDev = process.env.NODE_ENV === 'development'
+const SIDECAR_URL = `http://127.0.0.1:${SIDECAR_PORT}`
+const isDev = !app.isPackaged
 
 let tray: Tray | null = null
 let chatWindow: BrowserWindow | null = null
@@ -16,11 +16,11 @@ let statusPollInterval: ReturnType<typeof setInterval> | null = null
 
 function startSidecar() {
   const pythonPath = isDev
-    ? path.join(__dirname, '..', 'sidecar', 'venv', 'Scripts', 'python.exe')
+    ? path.join(__dirname, '..', '..', 'sidecar', 'venv', 'Scripts', 'python.exe')
     : path.join(process.resourcesPath, 'sidecar', 'venv', 'Scripts', 'python.exe')
 
   const sidecarDir = isDev
-    ? path.join(__dirname, '..', 'sidecar')
+    ? path.join(__dirname, '..', '..', 'sidecar')
     : path.join(process.resourcesPath, 'sidecar')
 
   sidecarProcess = spawn(pythonPath, ['-m', 'uvicorn', 'main:app', '--port', SIDECAR_PORT], {
@@ -141,6 +141,7 @@ function createTray() {
 app.whenReady().then(() => {
   startSidecar()
   createTray()
+  createChatWindow()
 
   // Wait 3s for sidecar to boot, then start polling
   setTimeout(() => {

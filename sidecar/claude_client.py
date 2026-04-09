@@ -86,7 +86,7 @@ def _format_moments(moments) -> str:
 class ClaudeClient:
     def __init__(self, api_key: str, db: Session):
         self.client = genai.Client(api_key=api_key)
-        self.model_name = "gemini-1.5-flash"
+        self.model_name = "gemini-2.5-flash"
         self.db = db
 
     def _handle_tool(self, tool_name: str, tool_input: dict) -> str:
