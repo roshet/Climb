@@ -6,7 +6,7 @@ interface MomentCardProps {
   goldImpact: number
 }
 
-const POSITIVE_TYPES = new Set(['solo_kill', 'objective_secured'])
+const POSITIVE_TYPES = new Set(['solo_kill', 'objective_secured', 'gank_assist', 'baron_secured', 'dragon_stack'])
 
 export function MomentCard({ timestampSecs, momentType, description, counterfactual, goldImpact }: MomentCardProps) {
   const mins = Math.floor(timestampSecs / 60)

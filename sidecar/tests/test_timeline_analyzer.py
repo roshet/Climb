@@ -47,18 +47,6 @@ def test_detects_tower_kill_by_enemy():
     tower_moments = [m for m in moments if m.moment_type == "tower_lost"]
     assert len(tower_moments) >= 1
 
-def test_returns_top_5_max():
-    # Generate many events
-    events = [
-        {"type": "CHAMPION_KILL", "timestamp": (i + 1) * 60000,
-         "killerId": 3, "victimId": PARTICIPANT_ID,
-         "position": {"x": 5000, "y": 7000}}
-        for i in range(10)
-    ]
-    timeline = {"info": {"frames": [make_frame((i + 1) * 60000, [events[i]]) for i in range(10)]}}
-    moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
-    assert len(moments) <= 5
-
 def test_death_tower_dive():
     # Blue turret at (981, 10441) — death within 1000 units
     timeline = {"info": {"frames": [
@@ -210,7 +198,8 @@ def test_death_execute_near_own_turret():
     assert len(deaths) == 1
     assert "executed" in deaths[0].description
 
-def test_sorted_by_gold_impact_descending():
+def test_sorted_chronologically():
+    # Baron at 905000ms, death at 502000ms — death should come first
     timeline = {"info": {"frames": [
         make_frame(900000, [
             {"type": "ELITE_MONSTER_KILL", "timestamp": 905000,
@@ -225,4 +214,4 @@ def test_sorted_by_gold_impact_descending():
     ]}}
     moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
     if len(moments) >= 2:
-        assert moments[0].gold_impact >= moments[1].gold_impact
+        assert moments[0].timestamp_secs <= moments[1].timestamp_secs

@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from claude_client import ClaudeClient
-from counterfactual import enrich_moments
 from database import (
     AppState,
     clear_pending_popup, get_chat_history, get_matches, get_pending_popup,
@@ -73,6 +72,8 @@ async def run_post_game_analysis():
         participants = info["participants"]
         participant = next(p for p in participants if p["puuid"] == puuid)
         participant_index = participants.index(participant) + 1  # 1-indexed
+        role = participant.get("teamPosition", "UNKNOWN")
+        champion = participant["championName"]
 
         # Resolve enemy jungler by Smite (summoner spell ID 11)
         SMITE_ID = 11
@@ -99,8 +100,24 @@ async def run_post_game_analysis():
             "raw_timeline": timeline_data,
         })
 
-        moments = analyze_timeline(timeline_data, participant_id=participant_index, enemy_jungler_id=enemy_jungler_id)
-        enriched = enrich_moments(moments)
+        moments = analyze_timeline(
+            timeline_data,
+            participant_id=participant_index,
+            enemy_jungler_id=enemy_jungler_id,
+            role=role,
+            champion=champion,
+        )
+        side = "blue" if participant_index in TEAM_100_IDS else "red"
+        game_context = {
+            "participant_id": participant_index,
+            "champion": champion,
+            "role": role,
+            "side": side,
+            "result": "win" if participant["win"] else "loss",
+            "kda": f"{participant['kills']}/{participant['deaths']}/{participant['assists']}",
+            "duration_secs": info["gameDuration"],
+        }
+        enriched = claude.generate_coaching_notes(moments, game_context, timeline_data)
         save_pivotal_moments(db, match_id, [
             {
                 "timestamp_secs": m.timestamp_secs,
