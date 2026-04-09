@@ -12,3 +12,4 @@ sidecar/venv/
 Thumbs.db
 .coverage
 htmlcov/
+.worktrees/
