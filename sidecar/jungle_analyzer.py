@@ -109,11 +109,47 @@ def analyze_jungle(
 
 
 def _detect_invade_death(event: dict, participant_id: int) -> PivotalMomentData | None:
-    pass  # implemented in Task 3
+    if event.get("victimId") != participant_id:
+        return None
+    position = event.get("position", {"x": 0, "y": 0})
+    if not _in_enemy_jungle(position, participant_id):
+        return None
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="invade_death",
+        description=f"You were caught in the enemy jungle at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
 
 
-def _detect_counter_ganked(event: dict, participant_id: int, enemy_jungler_id: int | None) -> PivotalMomentData | None:
-    pass  # implemented in Task 3
+def _detect_counter_ganked(
+    event: dict,
+    participant_id: int,
+    enemy_jungler_id: int | None,
+) -> PivotalMomentData | None:
+    if event.get("victimId") != participant_id:
+        return None
+    if enemy_jungler_id is None:
+        return None
+    killer_id = event.get("killerId", 0)
+    assisters = event.get("assistingParticipantIds", [])
+    if killer_id != enemy_jungler_id and enemy_jungler_id not in assisters:
+        return None
+    position = event.get("position", {"x": 0, "y": 0})
+    if not _in_ally_lane(position, participant_id):
+        return None
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="counter_ganked",
+        description=f"You were counter-ganked at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
 
 
 def _detect_gank_assist(event: dict, participant_id: int) -> PivotalMomentData | None:
