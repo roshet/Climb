@@ -144,3 +144,89 @@ def test_baron_secured():
     assert len(secured) == 1
     assert "Baron" in secured[0].description
     assert secured[0].gold_impact == 900
+
+
+def test_dragon_missed_wrong_side():
+    # Jungler is top-side (y=10000) when enemy takes Dragon at 5:23
+    timeline = {"info": {"frames": [
+        make_frame(280000, [], positions={JUNGLE_ID: (2000, 10000)}),  # jungler top-side
+        make_frame(325000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 323000,
+             "killerId": 6, "monsterType": "DRAGON",
+             "position": {"x": 9866, "y": 4414}}
+        ], positions={JUNGLE_ID: (2000, 10000)}),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    misses = [m for m in moments if m.moment_type == "dragon_missed"]
+    assert len(misses) == 1
+    assert "Dragon" in misses[0].description
+
+
+def test_dragon_not_missed_if_jungler_recently_dead():
+    # Jungler died 23s before Dragon — correct concede, should NOT flag
+    timeline = {"info": {"frames": [
+        make_frame(300000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300000,
+             "killerId": 6, "victimId": JUNGLE_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 2000, "y": 10000}}
+        ], positions={JUNGLE_ID: (2000, 10000)}),
+        make_frame(325000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 323000,
+             "killerId": 6, "monsterType": "DRAGON",
+             "position": {"x": 9866, "y": 4414}}
+        ], positions={JUNGLE_ID: (2000, 10000)}),
+    ]}}
+    # Jungler died at 300s, Dragon at 323s — 23s gap (within ALIVE_WINDOW_SECS=30)
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    misses = [m for m in moments if m.moment_type == "dragon_missed"]
+    assert len(misses) == 0
+
+
+def test_baron_missed_wrong_side():
+    # Jungler is bot-side (y=2000) when enemy takes Baron at 20:00
+    timeline = {"info": {"frames": [
+        make_frame(1195000, [], positions={JUNGLE_ID: (8000, 2000)}),  # jungler bot-side
+        make_frame(1205000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 1203000,
+             "killerId": 6, "monsterType": "BARON_NASHOR",
+             "position": {"x": 5007, "y": 10471}}
+        ], positions={JUNGLE_ID: (8000, 2000)}),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    misses = [m for m in moments if m.moment_type == "baron_missed"]
+    assert len(misses) == 1
+    assert "Baron" in misses[0].description
+
+
+def test_void_grubs_missed_all_three():
+    # Enemy takes all 3 void grubs
+    grub_events = [
+        {"type": "ELITE_MONSTER_KILL", "timestamp": 305000 + i * 60000,
+         "killerId": 6, "monsterType": "HORDE"}
+        for i in range(3)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(300000 + i * 60000, [grub_events[i]])
+        for i in range(3)
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    grub_misses = [m for m in moments if m.moment_type == "void_grubs_missed"]
+    assert len(grub_misses) == 1
+    assert "Void Grub" in grub_misses[0].description
+
+
+def test_void_grubs_not_flagged_if_player_team_gets_them():
+    # Player's team takes all 3 void grubs — should NOT flag
+    grub_events = [
+        {"type": "ELITE_MONSTER_KILL", "timestamp": 305000 + i * 60000,
+         "killerId": 1, "monsterType": "HORDE"}  # team 100 jungler
+        for i in range(3)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(300000 + i * 60000, [grub_events[i]])
+        for i in range(3)
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    grub_misses = [m for m in moments if m.moment_type == "void_grubs_missed"]
+    assert len(grub_misses) == 0

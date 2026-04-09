@@ -174,16 +174,82 @@ def _detect_gank_assist(event: dict, participant_id: int) -> PivotalMomentData |
     )
 
 
-def _detect_dragon_missed(event: dict, frames: list, participant_id: int, last_death_ts: int | None) -> PivotalMomentData | None:
-    pass  # implemented in Task 5
+def _detect_dragon_missed(
+    event: dict,
+    frames: list,
+    participant_id: int,
+    last_death_ts: int | None,
+) -> PivotalMomentData | None:
+    if event.get("monsterType") != "DRAGON":
+        return None
+    enemy_team = TEAM_200_IDS if participant_id in TEAM_100_IDS else TEAM_100_IDS
+    if event.get("killerId", 0) not in enemy_team:
+        return None
+    ts = event["timestamp"] // 1000
+    # Alive check: jungler must not have died within ALIVE_WINDOW_SECS
+    if last_death_ts is not None and ts - last_death_ts <= ALIVE_WINDOW_SECS:
+        return None
+    # Position check: jungler must have been on the wrong side (away from Dragon)
+    jungler_pos = _jungler_position_at(frames, event["timestamp"], participant_id)
+    if jungler_pos is None:
+        return None
+    py = jungler_pos.get("y", 0)
+    # Dragon is in bot river (low y). Wrong side = top-heavy position (high y).
+    on_wrong_side = py > 7000
+    if not on_wrong_side:
+        return None
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="dragon_missed",
+        description=f"Enemy secured Dragon at {mins}:{secs:02d} while you were on the wrong side of the map.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DRAGON"],
+    )
 
 
-def _detect_baron_missed(event: dict, frames: list, participant_id: int, last_death_ts: int | None) -> PivotalMomentData | None:
-    pass  # implemented in Task 5
+def _detect_baron_missed(
+    event: dict,
+    frames: list,
+    participant_id: int,
+    last_death_ts: int | None,
+) -> PivotalMomentData | None:
+    if event.get("monsterType") != "BARON_NASHOR":
+        return None
+    enemy_team = TEAM_200_IDS if participant_id in TEAM_100_IDS else TEAM_100_IDS
+    if event.get("killerId", 0) not in enemy_team:
+        return None
+    ts = event["timestamp"] // 1000
+    if last_death_ts is not None and ts - last_death_ts <= ALIVE_WINDOW_SECS:
+        return None
+    jungler_pos = _jungler_position_at(frames, event["timestamp"], participant_id)
+    if jungler_pos is None:
+        return None
+    py = jungler_pos.get("y", 0)
+    # Baron is in top river (high y). Wrong side = bot-heavy position (low y).
+    on_wrong_side = py < 7500
+    if not on_wrong_side:
+        return None
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="baron_missed",
+        description=f"Enemy secured Baron Nashor at {mins}:{secs:02d} while you were on the wrong side of the map.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["BARON_NASHOR"],
+    )
 
 
 def _detect_void_grubs_missed(event: dict) -> PivotalMomentData | None:
-    pass  # implemented in Task 5
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="void_grubs_missed",
+        description=f"Enemy secured all {VOID_GRUBS_TOTAL} Void Grubs at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=300,
+    )
 
 
 def _detect_dragon_stack(event: dict, participant_id: int) -> PivotalMomentData | None:
