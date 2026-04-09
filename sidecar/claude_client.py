@@ -1,7 +1,9 @@
+import json
 from sqlalchemy.orm import Session
 from google import genai
 from google.genai import types
 from database import get_matches, get_pivotal_moments
+from timeline_analyzer import TEAM_100_IDS, TEAM_200_IDS
 
 TOOL_DECLARATIONS = [
     types.FunctionDeclaration(
@@ -81,6 +83,62 @@ def _format_moments(moments) -> str:
         mins, secs = divmod(m.timestamp_secs, 60)
         lines.append(f"- [{m.match_id}] {mins}:{secs:02d} {m.moment_type}: {m.description} | Counterfactual: {m.counterfactual} | Impact: ~{m.gold_impact}g")
     return "\n".join(lines)
+
+
+def _summarize_event(event: dict, participant_id: int) -> str | None:
+    """Convert a raw timeline event to a one-line readable summary."""
+    ts = event.get("timestamp", 0) // 1000
+    mins, secs = divmod(ts, 60)
+    t = f"{mins}:{secs:02d}"
+    event_type = event.get("type", "")
+    player_team = TEAM_100_IDS if participant_id in TEAM_100_IDS else TEAM_200_IDS
+
+    if event_type == "CHAMPION_KILL":
+        killer = event.get("killerId", 0)
+        victim = event.get("victimId", 0)
+        assisters = event.get("assistingParticipantIds", [])
+        if victim == participant_id:
+            assist_str = f" (assists: {assisters})" if assisters else ""
+            return f"{t} — You were killed by participant {killer}{assist_str}"
+        elif killer == participant_id:
+            return f"{t} — You killed participant {victim}"
+        elif participant_id in assisters:
+            return f"{t} — You assisted killing participant {victim}"
+        else:
+            return f"{t} — Fight: participant {killer} killed participant {victim}"
+
+    elif event_type == "ELITE_MONSTER_KILL":
+        monster = event.get("monsterType", "UNKNOWN")
+        killer = event.get("killerId", 0)
+        team = "your team" if killer in player_team else "enemy team"
+        return f"{t} — {team} secured {monster}"
+
+    elif event_type == "BUILDING_KILL":
+        lane = event.get("laneType", "UNKNOWN").replace("_LANE", "")
+        tower = event.get("towerType", "TURRET").replace("_TURRET", "").lower()
+        team_id = event.get("teamId", 0)
+        player_team_id = 100 if participant_id in TEAM_100_IDS else 200
+        loser = "your team" if team_id == player_team_id else "enemy team"
+        return f"{t} — {lane} {tower} tower lost by {loser}"
+
+    return None
+
+
+def _build_context_window(
+    all_events: list[dict],
+    moment_ts_secs: int,
+    participant_id: int,
+    window_secs: int = 90,
+) -> str:
+    """Return readable summary of all events within window_secs of moment_ts_secs."""
+    lines = []
+    for event in all_events:
+        ts = event.get("timestamp", 0) // 1000
+        if abs(ts - moment_ts_secs) <= window_secs:
+            summary = _summarize_event(event, participant_id)
+            if summary:
+                lines.append(summary)
+    return "\n".join(lines) if lines else "No notable events in this window."
 
 
 class ClaudeClient:
@@ -169,3 +227,88 @@ class ClaudeClient:
             response = chat_session.send_message(tool_response_parts)
 
         return response.text
+
+    def generate_coaching_notes(
+        self,
+        moments: list,
+        game_context: dict,
+        timeline: dict,
+    ) -> list:
+        """
+        Generate AI coaching notes for all moments in a single Gemini call.
+        Falls back to counterfactual.enrich_moments on failure.
+        Mutates and returns the moments list with counterfactual filled in.
+        """
+        from counterfactual import enrich_moments as fallback_enrich
+
+        if not moments:
+            return moments
+
+        participant_id = game_context.get("participant_id", 1)
+
+        # Collect all events from timeline for context window lookups
+        all_events: list[dict] = []
+        for frame in timeline.get("info", {}).get("frames", []):
+            all_events.extend(frame.get("events", []))
+
+        # Build game context header
+        champion = game_context.get("champion", "Unknown")
+        role = game_context.get("role", "JUNGLE")
+        side = game_context.get("side", "blue")
+        result = game_context.get("result", "unknown")
+        kda = game_context.get("kda", "0/0/0")
+        duration_secs = game_context.get("duration_secs", 0)
+        dur_mins, dur_secs_r = divmod(duration_secs, 60)
+        header = (
+            f"Champion: {champion} | Role: {role} | Side: {side} side\n"
+            f"Result: {result.upper()} | KDA: {kda} | Duration: {dur_mins}:{dur_secs_r:02d}"
+        )
+
+        # Build one block per moment
+        moment_blocks = []
+        for i, m in enumerate(moments):
+            ctx = _build_context_window(all_events, m.timestamp_secs, participant_id)
+            moment_blocks.append(
+                f"[{i}] {m.moment_type} — {m.description}\n"
+                f"Context (±90s):\n{ctx}"
+            )
+
+        moments_text = "\n---\n".join(moment_blocks)
+
+        prompt = (
+            f"You are coaching a {champion} {role.lower()}. {header}\n\n"
+            f"For each moment below, write a 3-4 sentence coaching note. Rules:\n"
+            f"- Be specific to the {role.lower()} role\n"
+            f"- Reference what was happening in the surrounding context\n"
+            f"- Give one concrete, achievable alternative action\n"
+            f"- Use encouraging language for positive moments "
+            f"(gank_assist, baron_secured, dragon_stack, solo_kill, objective_secured)\n"
+            f"- Describe game state for mistakes — don't moralize\n"
+            f"- Keep each note to 3-4 sentences maximum\n\n"
+            f"{moments_text}\n\n"
+            f"Return ONLY valid JSON, no other text: "
+            f'[{{"id": 0, "coaching": "..."}}, ...]'
+        )
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+            )
+            raw = response.text.strip()
+            # Strip markdown code fences if Gemini wraps with ```json ... ```
+            if raw.startswith("```"):
+                parts = raw.split("```")
+                raw = parts[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            coaching_list = json.loads(raw)
+            coaching_map = {item["id"]: item["coaching"] for item in coaching_list}
+            for i, m in enumerate(moments):
+                if i in coaching_map:
+                    m.counterfactual = coaching_map[i]
+        except Exception as e:
+            print(f"[coaching] Gemini call failed ({e}). Using static fallback.")
+            fallback_enrich(moments)
+
+        return moments
