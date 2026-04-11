@@ -187,6 +187,7 @@ def get_analysis(match_id: str):
     return {
         "match_id": match_id,
         "champion": match.champion,
+        "role": match.role,
         "result": match.result,
         "duration_secs": match.duration_secs,
         "kda": match.kda,
