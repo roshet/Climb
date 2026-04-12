@@ -86,6 +86,8 @@ async def main():
     print(f'Moments found: {len(enriched)}')
     for m in enriched:
         print(f'  [{m.moment_type}] {m.description}')
+        if m.counterfactual:
+            print(f'    coaching: {m.counterfactual}')
     await riot.close()
 
 asyncio.run(main())
