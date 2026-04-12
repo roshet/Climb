@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { POSITIVE_TYPES } from './constants'
 
 interface MomentCardProps {
   timestampSecs: number
@@ -7,10 +8,6 @@ interface MomentCardProps {
   counterfactual: string
   goldImpact: number
 }
-
-const POSITIVE_TYPES = new Set([
-  'solo_kill', 'objective_secured', 'gank_assist', 'baron_secured', 'dragon_stack'
-])
 
 function formatType(momentType: string): string {
   return momentType.replace(/_/g, ' ').toUpperCase()
@@ -26,7 +23,6 @@ export function MomentCard({ timestampSecs, momentType, description, counterfact
   const borderColor = isPositive ? 'border-green-500/30' : 'border-yellow-500/30'
   const bgColor = isPositive ? 'bg-green-500/5' : 'bg-yellow-500/5'
   const labelColor = isPositive ? 'text-green-400' : 'text-yellow-400'
-  const arrowColor = isPositive ? 'text-green-400' : 'text-yellow-400'
   const dividerColor = isPositive ? 'border-green-500/20' : 'border-yellow-500/20'
   const impactColor = isPositive ? 'text-green-500/50' : 'text-yellow-500/50'
 
@@ -45,7 +41,7 @@ export function MomentCard({ timestampSecs, momentType, description, counterfact
           </div>
           <p className="text-white text-xs leading-snug">{description}</p>
         </div>
-        <span className={`${arrowColor} text-xs mt-0.5 shrink-0`}>
+        <span className={`${labelColor} text-xs mt-0.5 shrink-0`}>
           {expanded ? '▲' : '▼'}
         </span>
       </div>

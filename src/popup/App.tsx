@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MomentCard } from './MomentCard'
+import { POSITIVE_TYPES } from './constants'
 import '../index.css'
 
 declare global {
@@ -27,9 +28,6 @@ interface Analysis {
 
 type Filter = 'all' | 'positive' | 'negative'
 
-const POSITIVE_TYPES = new Set([
-  'solo_kill', 'objective_secured', 'gank_assist', 'baron_secured', 'dragon_stack'
-])
 
 function getMatchId(): string | null {
   return new URLSearchParams(window.location.search).get('matchId')
@@ -156,9 +154,9 @@ function PopupApp() {
       <div className="mb-3">
         {filteredMoments.length === 0
           ? <p className="text-gray-400 text-sm">No moments in this category.</p>
-          : filteredMoments.map((m, i) => (
+          : filteredMoments.map((m) => (
               <MomentCard
-                key={i}
+                key={`${m.timestamp_secs}-${m.moment_type}`}
                 timestampSecs={m.timestamp_secs}
                 momentType={m.moment_type}
                 description={m.description}
