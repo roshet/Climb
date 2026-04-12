@@ -8,6 +8,7 @@
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
+    "minimatch": "^10.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -25,5 +26,34 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.climb.app",
+    "productName": "Climb",
+    "directories": {
+      "output": "dist-installer"
+    },
+    "extraResources": [
+      {
+        "from": "sidecar",
+        "to": "sidecar",
+        "filter": [
+          "**/*",
+          "!analyst.db",
+          "!.env",
+          "!**/__pycache__/**",
+          "!tests/**",
+          "!*.pyc"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "createStartMenuShortcut": true
+    }
   }
 }
