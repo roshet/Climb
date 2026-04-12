@@ -105,6 +105,7 @@ function PopupApp() {
         <div className="bg-[#1e1e3a] rounded-lg p-2 text-center">
           <p className="text-gray-500 text-[8px] uppercase tracking-wide mb-0.5">Champion</p>
           <p className="text-purple-400 text-[11px] font-bold truncate">{analysis.champion}</p>
+          {analysis.role && <p className="text-gray-500 text-[8px] truncate">{analysis.role}</p>}
         </div>
         <div className={`${isWin ? 'bg-green-900/30' : 'bg-red-900/30'} rounded-lg p-2 text-center`}>
           <p className="text-gray-500 text-[8px] uppercase tracking-wide mb-0.5">Result</p>
