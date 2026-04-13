@@ -56,12 +56,17 @@ function startSidecar(config: Config) {
     ? path.join(__dirname, '..', '..', 'sidecar')
     : path.join(process.resourcesPath, 'sidecar')
 
+  const dbPath = isDev
+    ? path.join(__dirname, '..', '..', 'sidecar', 'analyst.db')
+    : path.join(app.getPath('userData'), 'analyst.db')
+
   sidecarProcess = spawn(pythonPath, ['-m', 'uvicorn', 'main:app', '--port', SIDECAR_PORT], {
     cwd: sidecarDir,
     env: {
       ...process.env,
       RIOT_API_KEY: config.riotApiKey,
       GEMINI_API_KEY: config.geminiApiKey,
+      DB_PATH: dbPath,
     },
   })
 

@@ -47,6 +47,8 @@
         ]
       }
     ],
+    "asar": true,
+    "asarUnpack": ["**/sidecar/**"],
     "win": {
       "target": "nsis"
     },
