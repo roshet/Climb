@@ -3,6 +3,7 @@ from timeline_analyzer import (
     PivotalMomentData,
     TEAM_100_IDS, TEAM_200_IDS, GOLD_VALUES,
     BLUE_TURRETS, RED_TURRETS, TOWER_DIVE_RADIUS,
+    score_objective_missed, score_objective_secured,
 )
 
 # --- Timing ---
@@ -42,13 +43,16 @@ def _in_any_side_lane(position: dict) -> bool:
     return _in_top_lane(position) or _in_bot_lane(position)
 
 
-def _in_player_lane(position: dict, role: str) -> bool:
+def _in_player_lane(position: dict, role: str, participant_id: int) -> bool:
+    is_blue_side = participant_id in TEAM_100_IDS
     if role == "TOP":
-        return _in_top_lane(position)
+        px = position.get("x", 0)
+        return px < TOP_LANE_X_MAX if is_blue_side else px > 10000
     if role == "MIDDLE":
         return _in_mid_lane(position)
     if role in ("BOTTOM", "UTILITY"):
-        return _in_bot_lane(position)
+        py = position.get("y", 0)
+        return py < BOT_LANE_Y_MAX if is_blue_side else py > 10000
     return False
 
 
@@ -75,7 +79,7 @@ def _detect_lane_death(
     if ts >= LANING_PHASE_END_SECS:
         return None
     position = event.get("position", {"x": 0, "y": 0})
-    if not _in_player_lane(position, role):
+    if not _in_player_lane(position, role, participant_id):
         return None
 
     killer_id = event.get("killerId", 0)
@@ -124,7 +128,7 @@ def _detect_solo_kill_in_lane(
     if lane_opponent_id is None or event.get("victimId") != lane_opponent_id:
         return None
     position = event.get("position", {"x": 0, "y": 0})
-    if not _in_player_lane(position, role):
+    if not _in_player_lane(position, role, participant_id):
         return None
     ts = event["timestamp"] // 1000
     mins, secs = divmod(ts, 60)
@@ -134,44 +138,6 @@ def _detect_solo_kill_in_lane(
         description=f"You got a solo kill on your lane opponent at {mins}:{secs:02d}.",
         counterfactual="",
         gold_impact=GOLD_VALUES["DEATH"],
-    )
-
-
-def _score_objective_missed(event: dict, participant_id: int) -> PivotalMomentData | None:
-    if event.get("type") != "ELITE_MONSTER_KILL":
-        return None
-    enemy_team = TEAM_200_IDS if participant_id in TEAM_100_IDS else TEAM_100_IDS
-    if event.get("killerId", 0) not in enemy_team:
-        return None
-    monster = event.get("monsterType", "UNKNOWN")
-    gold = GOLD_VALUES.get(monster, 300)
-    ts = event["timestamp"] // 1000
-    mins, secs = divmod(ts, 60)
-    return PivotalMomentData(
-        timestamp_secs=ts,
-        moment_type="objective_missed",
-        description=f"Enemy team secured {monster.replace('_', ' ').title()} at {mins}:{secs:02d}.",
-        counterfactual="",
-        gold_impact=gold,
-    )
-
-
-def _score_objective_secured(event: dict, participant_id: int) -> PivotalMomentData | None:
-    if event.get("type") != "ELITE_MONSTER_KILL":
-        return None
-    player_team = TEAM_100_IDS if participant_id in TEAM_100_IDS else TEAM_200_IDS
-    if event.get("killerId", 0) not in player_team:
-        return None
-    monster = event.get("monsterType", "UNKNOWN")
-    gold = GOLD_VALUES.get(monster, 300)
-    ts = event["timestamp"] // 1000
-    mins, secs = divmod(ts, 60)
-    return PivotalMomentData(
-        timestamp_secs=ts,
-        moment_type="objective_secured",
-        description=f"Your team secured {monster.replace('_', ' ').title()} at {mins}:{secs:02d}.",
-        counterfactual="",
-        gold_impact=gold,
     )
 
 
@@ -219,8 +185,8 @@ def analyze_laner(
                 )
             elif event_type == "ELITE_MONSTER_KILL":
                 moment = (
-                    _score_objective_missed(event, participant_id)
-                    or _score_objective_secured(event, participant_id)
+                    score_objective_missed(event, participant_id)
+                    or score_objective_secured(event, participant_id)
                 )
             elif event_type == "BUILDING_KILL":
                 moment = _score_tower_lost(event, participant_id)

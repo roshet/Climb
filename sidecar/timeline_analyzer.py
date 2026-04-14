@@ -135,7 +135,7 @@ def _classify_death(
     )
 
 
-def _score_objective_missed(event: dict, participant_id: int) -> PivotalMomentData | None:
+def score_objective_missed(event: dict, participant_id: int) -> PivotalMomentData | None:
     if event.get("type") != "ELITE_MONSTER_KILL":
         return None
     enemy_team = _enemy_team(participant_id)
@@ -155,7 +155,7 @@ def _score_objective_missed(event: dict, participant_id: int) -> PivotalMomentDa
     )
 
 
-def _score_objective_secured(event: dict, participant_id: int) -> PivotalMomentData | None:
+def score_objective_secured(event: dict, participant_id: int) -> PivotalMomentData | None:
     if event.get("type") != "ELITE_MONSTER_KILL":
         return None
     player_team = _player_team(participant_id)
@@ -244,8 +244,8 @@ def analyze_timeline(
                 solo = _score_solo_kill(event, participant_id)
                 moment = death or solo
             elif event_type == "ELITE_MONSTER_KILL":
-                missed = _score_objective_missed(event, participant_id)
-                secured = _score_objective_secured(event, participant_id)
+                missed = score_objective_missed(event, participant_id)
+                secured = score_objective_secured(event, participant_id)
                 moment = missed or secured
             elif event_type == "BUILDING_KILL":
                 moment = _score_tower(event, participant_id)

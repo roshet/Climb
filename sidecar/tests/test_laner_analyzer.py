@@ -145,6 +145,41 @@ def test_solo_kill_not_flagged_outside_lane():
     assert len(kills) == 0
 
 
+def test_lane_death_red_side_top_lane():
+    # Participant 6 (red side) dies at x=13000 (red top lane area), before 14 min
+    RED_TOP_ID = 6
+    RED_OPPONENT_ID = 1
+    timeline = {"info": {"frames": [
+        make_frame(300_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300_000,
+             "killerId": RED_OPPONENT_ID, "victimId": RED_TOP_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 13000, "y": 8000}},  # Red side top lane
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, RED_TOP_ID, RED_OPPONENT_ID, "TOP")
+    deaths = [m for m in moments if m.moment_type == "lane_death"]
+    assert len(deaths) == 1
+    assert "1v1" in deaths[0].description.lower()
+
+
+def test_lane_death_red_side_bot_lane():
+    # Participant 6 (red side) dies at y=13000 (red bot lane area), before 14 min
+    RED_BOT_ID = 6
+    RED_OPPONENT_ID = 1
+    timeline = {"info": {"frames": [
+        make_frame(300_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 300_000,
+             "killerId": RED_OPPONENT_ID, "victimId": RED_BOT_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 10000, "y": 13000}},  # Red side bot lane
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, RED_BOT_ID, RED_OPPONENT_ID, "BOTTOM")
+    deaths = [m for m in moments if m.moment_type == "lane_death"]
+    assert len(deaths) == 1
+
+
 # --- objectives ---
 
 def test_objective_missed_dragon():
