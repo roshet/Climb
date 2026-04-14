@@ -222,3 +222,74 @@ def test_tower_lost():
     moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
     towers = [m for m in moments if m.moment_type == "tower_lost"]
     assert len(towers) == 1
+
+
+# --- CS differential ---
+
+def test_cs_differential_flagged_when_15_behind():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], cs={TOP_ID: 60, OPPONENT_ID: 80}),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    cs_moments = [m for m in moments if m.moment_type == "cs_differential"]
+    assert len(cs_moments) == 1
+    assert "20 CS" in cs_moments[0].description
+    assert cs_moments[0].timestamp_secs == 840
+
+
+def test_cs_differential_not_flagged_when_less_than_15_behind():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], cs={TOP_ID: 70, OPPONENT_ID: 80}),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    cs_moments = [m for m in moments if m.moment_type == "cs_differential"]
+    assert len(cs_moments) == 0
+
+
+def test_cs_differential_not_flagged_for_support():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], cs={1: 0, 6: 80}),
+    ]}}
+    moments = analyze_laner(timeline, 1, 6, "UTILITY")
+    cs_moments = [m for m in moments if m.moment_type == "cs_differential"]
+    assert len(cs_moments) == 0
+
+
+def test_cs_differential_not_flagged_when_ahead():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], cs={TOP_ID: 90, OPPONENT_ID: 70}),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    cs_moments = [m for m in moments if m.moment_type == "cs_differential"]
+    assert len(cs_moments) == 0
+
+
+# --- Gold differential ---
+
+def test_gold_differential_flagged_when_1000_behind():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], gold={TOP_ID: 4000, OPPONENT_ID: 5500}),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    gold_moments = [m for m in moments if m.moment_type == "gold_differential"]
+    assert len(gold_moments) == 1
+    assert "1500" in gold_moments[0].description
+    assert gold_moments[0].timestamp_secs == 840
+
+
+def test_gold_differential_flagged_for_support():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], gold={1: 2000, 6: 4000}),
+    ]}}
+    moments = analyze_laner(timeline, 1, 6, "UTILITY")
+    gold_moments = [m for m in moments if m.moment_type == "gold_differential"]
+    assert len(gold_moments) == 1
+
+
+def test_gold_differential_not_flagged_when_less_than_1000_behind():
+    timeline = {"info": {"frames": [
+        make_frame(840_000, [], gold={TOP_ID: 4200, OPPONENT_ID: 5000}),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    gold_moments = [m for m in moments if m.moment_type == "gold_differential"]
+    assert len(gold_moments) == 0

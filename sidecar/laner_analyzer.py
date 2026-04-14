@@ -161,6 +161,58 @@ def _score_tower_lost(event: dict, participant_id: int) -> PivotalMomentData | N
     )
 
 
+def _cs_differential_at_14(
+    frames: list,
+    participant_id: int,
+    lane_opponent_id: int,
+) -> PivotalMomentData | None:
+    snapshot = next(
+        (f for f in frames if f["timestamp"] >= 840_000),
+        None,
+    )
+    if snapshot is None:
+        return None
+    pf = snapshot.get("participantFrames", {})
+    player_cs = pf.get(str(participant_id), {}).get("minionsKilled", 0)
+    opponent_cs = pf.get(str(lane_opponent_id), {}).get("minionsKilled", 0)
+    diff = opponent_cs - player_cs
+    if diff < 15:
+        return None
+    return PivotalMomentData(
+        timestamp_secs=840,
+        moment_type="cs_differential",
+        description=f"You were {diff} CS behind your lane opponent at 14:00.",
+        counterfactual="",
+        gold_impact=diff * 21,
+    )
+
+
+def _gold_differential_at_14(
+    frames: list,
+    participant_id: int,
+    lane_opponent_id: int,
+) -> PivotalMomentData | None:
+    snapshot = next(
+        (f for f in frames if f["timestamp"] >= 840_000),
+        None,
+    )
+    if snapshot is None:
+        return None
+    pf = snapshot.get("participantFrames", {})
+    player_gold = pf.get(str(participant_id), {}).get("totalGold", 0)
+    opponent_gold = pf.get(str(lane_opponent_id), {}).get("totalGold", 0)
+    diff = opponent_gold - player_gold
+    if diff < 1000:
+        return None
+    return PivotalMomentData(
+        timestamp_secs=840,
+        moment_type="gold_differential",
+        description=f"You were {diff}g behind your lane opponent at 14:00.",
+        counterfactual="",
+        gold_impact=diff,
+    )
+
+
 # --- Entry point ---
 
 def analyze_laner(
@@ -193,6 +245,16 @@ def analyze_laner(
 
             if moment:
                 moments.append(moment)
+
+    # Frame-based signals: CS and gold differential
+    if lane_opponent_id is not None:
+        if role in ("TOP", "MIDDLE", "BOTTOM"):
+            cs_moment = _cs_differential_at_14(frames, participant_id, lane_opponent_id)
+            if cs_moment:
+                moments.append(cs_moment)
+        gold_moment = _gold_differential_at_14(frames, participant_id, lane_opponent_id)
+        if gold_moment:
+            moments.append(gold_moment)
 
     moments.sort(key=lambda m: m.timestamp_secs)
     return moments
