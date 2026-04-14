@@ -213,6 +213,87 @@ def _gold_differential_at_14(
     )
 
 
+def _detect_split_push_death(
+    event: dict,
+    participant_id: int,
+) -> PivotalMomentData | None:
+    if event.get("victimId") != participant_id:
+        return None
+    ts = event["timestamp"] // 1000
+    if ts < POST_LANING_SECS:
+        return None
+    position = event.get("position", {"x": 0, "y": 0})
+    if not _in_any_side_lane(position):
+        return None
+    killer_id = event.get("killerId", 0)
+    assisters = event.get("assistingParticipantIds", [])
+    total_enemies = len(set([killer_id] + list(assisters)) - {0})
+    if total_enemies < 3:
+        return None
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="split_push_death",
+        description=f"You were collapsed on by {total_enemies} enemies while split pushing at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
+
+
+def _detect_roam_kill(
+    event: dict,
+    participant_id: int,
+) -> PivotalMomentData | None:
+    killer_id = event.get("killerId", 0)
+    assisters = event.get("assistingParticipantIds", [])
+    if killer_id != participant_id and participant_id not in assisters:
+        return None
+    victim_id = event.get("victimId", 0)
+    if victim_id == participant_id or victim_id == 0:
+        return None
+    ts = event["timestamp"] // 1000
+    if ts >= LANING_PHASE_END_SECS:
+        return None
+    position = event.get("position", {"x": 0, "y": 0})
+    if not _in_any_side_lane(position):
+        return None
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="roam_kill",
+        description=f"Your roam resulted in a kill at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
+
+
+def _detect_enemy_roam_kill(
+    event: dict,
+    participant_id: int,
+    lane_opponent_id: int,
+) -> PivotalMomentData | None:
+    killer_id = event.get("killerId", 0)
+    assisters = event.get("assistingParticipantIds", [])
+    if killer_id != lane_opponent_id and lane_opponent_id not in assisters:
+        return None
+    if event.get("victimId") == participant_id:
+        return None
+    ts = event["timestamp"] // 1000
+    if ts >= LANING_PHASE_END_SECS:
+        return None
+    position = event.get("position", {"x": 0, "y": 0})
+    if not _in_any_side_lane(position):
+        return None
+    mins, secs = divmod(ts, 60)
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="enemy_roam_kill",
+        description=f"Enemy mid roamed for a kill at {mins}:{secs:02d} while you were in lane.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
+
+
 # --- Entry point ---
 
 def analyze_laner(
@@ -225,6 +306,11 @@ def analyze_laner(
     moments: list[PivotalMomentData] = []
     frames = timeline.get("info", {}).get("frames", [])
 
+    plate_count = 0
+    plates_flagged = False
+    player_team_id = 100 if participant_id in TEAM_100_IDS else 200
+    role_to_lane = {"TOP": "TOP_LANE", "MIDDLE": "MID_LANE", "BOTTOM": "BOT_LANE"}
+
     for frame in frames:
         for event in frame.get("events", []):
             event_type = event.get("type")
@@ -235,6 +321,12 @@ def analyze_laner(
                     _detect_lane_death(event, participant_id, enemy_jungler_id, role)
                     or _detect_solo_kill_in_lane(event, participant_id, lane_opponent_id, role)
                 )
+                if moment is None and role == "TOP":
+                    moment = _detect_split_push_death(event, participant_id)
+                if moment is None and role == "MIDDLE":
+                    moment = _detect_roam_kill(event, participant_id)
+                    if moment is None and lane_opponent_id is not None:
+                        moment = _detect_enemy_roam_kill(event, participant_id, lane_opponent_id)
             elif event_type == "ELITE_MONSTER_KILL":
                 moment = (
                     score_objective_missed(event, participant_id)
@@ -242,6 +334,22 @@ def analyze_laner(
                 )
             elif event_type == "BUILDING_KILL":
                 moment = _score_tower_lost(event, participant_id)
+            elif event_type == "TURRET_PLATE_DESTROYED" and not plates_flagged and role in role_to_lane:
+                if (event.get("teamId") == player_team_id
+                        and event.get("laneType") == role_to_lane[role]):
+                    plate_count += 1
+                    if plate_count == PLATE_FLAG_THRESHOLD:
+                        plates_flagged = True
+                        ts = event["timestamp"] // 1000
+                        mins, secs = divmod(ts, 60)
+                        total_gold = PLATE_FLAG_THRESHOLD * PLATE_GOLD
+                        moment = PivotalMomentData(
+                            timestamp_secs=ts,
+                            moment_type="turret_plates_lost",
+                            description=f"Enemy took {PLATE_FLAG_THRESHOLD} tower plates in your lane by {mins}:{secs:02d} ({total_gold}g given up).",
+                            counterfactual="",
+                            gold_impact=total_gold,
+                        )
 
             if moment:
                 moments.append(moment)

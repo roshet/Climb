@@ -293,3 +293,174 @@ def test_gold_differential_not_flagged_when_less_than_1000_behind():
     moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
     gold_moments = [m for m in moments if m.moment_type == "gold_differential"]
     assert len(gold_moments) == 0
+
+
+# --- Turret plates ---
+
+def test_turret_plates_lost_flagged_at_3():
+    plate_events = [
+        {"type": "TURRET_PLATE_DESTROYED", "timestamp": (300_000 + i * 60_000),
+         "teamId": 100, "laneType": "TOP_LANE", "killerId": OPPONENT_ID}
+        for i in range(3)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(300_000 + i * 60_000, [plate_events[i]])
+        for i in range(3)
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    plates = [m for m in moments if m.moment_type == "turret_plates_lost"]
+    assert len(plates) == 1
+    assert "480" in plates[0].description  # 3 * 160g = 480g
+
+
+def test_turret_plates_not_flagged_before_3():
+    plate_events = [
+        {"type": "TURRET_PLATE_DESTROYED", "timestamp": (300_000 + i * 60_000),
+         "teamId": 100, "laneType": "TOP_LANE", "killerId": OPPONENT_ID}
+        for i in range(2)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(300_000 + i * 60_000, [plate_events[i]])
+        for i in range(2)
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    plates = [m for m in moments if m.moment_type == "turret_plates_lost"]
+    assert len(plates) == 0
+
+
+def test_turret_plates_not_flagged_wrong_lane():
+    plate_events = [
+        {"type": "TURRET_PLATE_DESTROYED", "timestamp": (300_000 + i * 60_000),
+         "teamId": 100, "laneType": "MID_LANE", "killerId": OPPONENT_ID}
+        for i in range(3)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(300_000 + i * 60_000, [plate_events[i]])
+        for i in range(3)
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    plates = [m for m in moments if m.moment_type == "turret_plates_lost"]
+    assert len(plates) == 0
+
+
+# --- Split push death (TOP) ---
+
+def test_split_push_death_post_20min():
+    timeline = {"info": {"frames": [
+        make_frame(1_200_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 1_200_000,
+             "killerId": OPPONENT_ID, "victimId": TOP_ID,
+             "assistingParticipantIds": [7, 8],
+             "position": {"x": 2000, "y": 12000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    splits = [m for m in moments if m.moment_type == "split_push_death"]
+    assert len(splits) == 1
+    assert "3" in splits[0].description
+
+
+def test_split_push_death_not_flagged_before_20min():
+    timeline = {"info": {"frames": [
+        make_frame(1_199_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 1_199_000,
+             "killerId": OPPONENT_ID, "victimId": TOP_ID,
+             "assistingParticipantIds": [7, 8],
+             "position": {"x": 2000, "y": 12000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    splits = [m for m in moments if m.moment_type == "split_push_death"]
+    assert len(splits) == 0
+
+
+def test_split_push_death_not_flagged_with_fewer_than_3_enemies():
+    timeline = {"info": {"frames": [
+        make_frame(1_200_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 1_200_000,
+             "killerId": OPPONENT_ID, "victimId": TOP_ID,
+             "assistingParticipantIds": [7],
+             "position": {"x": 2000, "y": 12000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, TOP_ID, OPPONENT_ID, "TOP")
+    splits = [m for m in moments if m.moment_type == "split_push_death"]
+    assert len(splits) == 0
+
+
+# --- Roam kill (MID) ---
+MID_ID = 3
+OPPONENT_MID_ID = 8
+
+def test_roam_kill_mid_in_bot_lane():
+    timeline = {"info": {"frames": [
+        make_frame(480_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480_000,
+             "killerId": MID_ID, "victimId": 9,
+             "assistingParticipantIds": [],
+             "position": {"x": 10000, "y": 2000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, MID_ID, OPPONENT_MID_ID, "MIDDLE")
+    roams = [m for m in moments if m.moment_type == "roam_kill"]
+    assert len(roams) == 1
+    assert "roam" in roams[0].description.lower()
+
+
+def test_roam_kill_not_flagged_in_mid_lane():
+    timeline = {"info": {"frames": [
+        make_frame(480_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480_000,
+             "killerId": MID_ID, "victimId": OPPONENT_MID_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 7000, "y": 7000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, MID_ID, OPPONENT_MID_ID, "MIDDLE")
+    roams = [m for m in moments if m.moment_type == "roam_kill"]
+    assert len(roams) == 0
+
+
+def test_roam_kill_not_flagged_after_14min():
+    timeline = {"info": {"frames": [
+        make_frame(900_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 900_000,
+             "killerId": MID_ID, "victimId": 9,
+             "assistingParticipantIds": [],
+             "position": {"x": 10000, "y": 2000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, MID_ID, OPPONENT_MID_ID, "MIDDLE")
+    roams = [m for m in moments if m.moment_type == "roam_kill"]
+    assert len(roams) == 0
+
+
+# --- Enemy roam kill (MID) ---
+
+def test_enemy_roam_kill_opponent_roams_top():
+    timeline = {"info": {"frames": [
+        make_frame(480_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480_000,
+             "killerId": OPPONENT_MID_ID, "victimId": 1,
+             "assistingParticipantIds": [],
+             "position": {"x": 2000, "y": 12000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, MID_ID, OPPONENT_MID_ID, "MIDDLE")
+    enemy_roams = [m for m in moments if m.moment_type == "enemy_roam_kill"]
+    assert len(enemy_roams) == 1
+    assert "enemy mid" in enemy_roams[0].description.lower()
+
+
+def test_enemy_roam_kill_not_flagged_when_killing_player():
+    timeline = {"info": {"frames": [
+        make_frame(480_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480_000,
+             "killerId": OPPONENT_MID_ID, "victimId": MID_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 2000, "y": 12000}},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, MID_ID, OPPONENT_MID_ID, "MIDDLE")
+    enemy_roams = [m for m in moments if m.moment_type == "enemy_roam_kill"]
+    assert len(enemy_roams) == 0
