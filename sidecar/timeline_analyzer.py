@@ -222,10 +222,15 @@ def analyze_timeline(
     enemy_jungler_id: int | None = None,
     role: str = "UNKNOWN",
     champion: str = "Unknown",
+    lane_opponent_id: int | None = None,
 ) -> list[PivotalMomentData]:
     if role == "JUNGLE":
         from jungle_analyzer import analyze_jungle
         return analyze_jungle(timeline, participant_id, enemy_jungler_id)
+
+    if role in ("TOP", "MIDDLE", "BOTTOM", "UTILITY"):
+        from laner_analyzer import analyze_laner
+        return analyze_laner(timeline, participant_id, lane_opponent_id, role, enemy_jungler_id)
 
     moments: list[PivotalMomentData] = []
     frames = timeline.get("info", {}).get("frames", [])

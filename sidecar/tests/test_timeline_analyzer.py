@@ -215,3 +215,26 @@ def test_sorted_chronologically():
     moments = analyze_timeline(timeline, participant_id=PARTICIPANT_ID)
     if len(moments) >= 2:
         assert moments[0].timestamp_secs <= moments[1].timestamp_secs
+
+
+def test_analyze_timeline_dispatches_to_laner_for_top():
+    timeline = {"info": {"frames": []}}
+    result = analyze_timeline(timeline, participant_id=1, role="TOP", lane_opponent_id=6)
+    assert isinstance(result, list)
+
+def test_analyze_timeline_dispatches_to_laner_for_support():
+    timeline = {"info": {"frames": []}}
+    result = analyze_timeline(timeline, participant_id=1, role="UTILITY", lane_opponent_id=6)
+    assert isinstance(result, list)
+
+def test_analyze_timeline_generic_path_still_works_for_unknown():
+    timeline = {"info": {"frames": [
+        make_frame(480000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480000,
+             "killerId": 7, "victimId": 1,
+             "assistingParticipantIds": [],
+             "position": {"x": 5000, "y": 7000}}
+        ]),
+    ]}}
+    result = analyze_timeline(timeline, participant_id=1, role="UNKNOWN")
+    assert any(m.moment_type == "death" for m in result)

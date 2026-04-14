@@ -86,6 +86,14 @@ async def run_post_game_analysis():
         )
         enemy_jungler_id = enemy_jungler_entry[0] if enemy_jungler_entry else None
 
+        lane_opponent_entry = next(
+            ((i + 1, p) for i, p in enumerate(participants)
+             if (i + 1) not in player_team_ids
+             and p.get("teamPosition") == role),
+            None,
+        )
+        lane_opponent_id = lane_opponent_entry[0] if lane_opponent_entry else None
+
         save_match(db, {
             "match_id": match_id,
             "played_at": datetime.fromtimestamp(info["gameStartTimestamp"] / 1000, tz=timezone.utc),
@@ -106,6 +114,7 @@ async def run_post_game_analysis():
             enemy_jungler_id=enemy_jungler_id,
             role=role,
             champion=champion,
+            lane_opponent_id=lane_opponent_id,
         )
         side = "blue" if participant_index in TEAM_100_IDS else "red"
         game_context = {
