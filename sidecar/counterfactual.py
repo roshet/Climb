@@ -113,6 +113,75 @@ def enrich_moments(moments: list[PivotalMomentData]) -> list[PivotalMomentData]:
             moment.counterfactual = _counterfactual_for_solo_kill(moment)
         elif moment.moment_type == "objective_secured":
             moment.counterfactual = _counterfactual_for_objective_secured(moment)
+        elif moment.moment_type == "lane_death":
+            desc = moment.description.lower()
+            if "ganked" in desc:
+                moment.counterfactual = (
+                    "The enemy jungler was in your lane. Before extending past the halfway point, "
+                    "check that the enemy jungler is visible on the map — if they're not, assume they "
+                    "could be nearby. Ward your river and tribush to get earlier warning."
+                )
+            elif "dove" in desc:
+                moment.counterfactual = (
+                    "You were dove under your tower. Position away from the tower edge when low so "
+                    "enemies can't pin you against it. Having an escape (Flash or dash) ready "
+                    "dramatically improves your odds of surviving a dive attempt."
+                )
+            else:
+                moment.counterfactual = (
+                    "You lost a 1v1 trade in lane. Check whether your champion wins this matchup at "
+                    "your current item level — some matchups are unwinnable pre-spike. If so, play "
+                    "for farm over fighting until you hit your power item."
+                )
+        elif moment.moment_type == "cs_differential":
+            moment.counterfactual = (
+                "Every 10 CS missed is roughly 200g — falling behind in CS compounds like a death. "
+                "Focus on last-hitting under tower, use wave freezes to farm safely when behind, "
+                "and prioritize safe CS over risky trades until the gap closes."
+            )
+        elif moment.moment_type == "gold_differential":
+            moment.counterfactual = (
+                "Your opponent had a significant gold lead at 14 minutes. Identify the main source: "
+                "CS deficit means work on wave management; kill gold means play safer until your "
+                "first item spike; plates mean crash your wave before recalling."
+            )
+        elif moment.moment_type == "turret_plates_lost":
+            moment.counterfactual = (
+                "Each plate is 160g — losing 3 gave the enemy 480g for free. Crashing your wave "
+                "into the tower before recalling denies plates. A full wave crash takes ~10 seconds "
+                "and prevents the enemy from freely taking plates while you're gone."
+            )
+        elif moment.moment_type == "split_push_death":
+            moment.counterfactual = (
+                "You were collapsed on in a side lane. Before committing deep in a split push, "
+                "check that 3+ enemies are accounted for on the minimap. If they're missing, "
+                "back off to safety — a teleport escape or recall is worth more than the tower."
+            )
+        elif moment.moment_type in ("roam_kill", "roam_assist"):
+            moment.counterfactual = (
+                "Good roam — you created a lead by transferring lane pressure to another part of the "
+                "map. Repeat this pattern: shove your wave first so you lose minimal CS, then rotate "
+                "before the enemy can respond."
+            )
+        elif moment.moment_type == "enemy_roam_kill":
+            moment.counterfactual = (
+                "While you farmed, your opponent created a lead on the map. Match their roam by "
+                "following, or shove your wave before they leave so they lose CS in exchange. "
+                "Letting them roam for free means they get the kill and keep their CS lead."
+            )
+        elif moment.moment_type == "low_vision":
+            moment.counterfactual = (
+                "Low ward count limits your team's ability to react to flanks and objective setups. "
+                "As support, aim for a ward every 90 seconds — prioritize river control near Dragon "
+                "and Baron timers. A Control Ward in the objective pit before it spawns is the "
+                "highest-value placement in the game."
+            )
+        elif moment.moment_type == "ward_kill":
+            moment.counterfactual = (
+                "Destroying enemy wards forces them to spend gold and time re-establishing vision. "
+                "Keep sweeping high-traffic corridors and the areas around upcoming objective "
+                "timers — vision denial before Dragon or Baron is especially impactful."
+            )
         elif not moment.counterfactual:
             moment.counterfactual = f"This event had an estimated ~{moment.gold_impact}g impact on the game outcome."
     return moments
