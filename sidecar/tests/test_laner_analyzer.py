@@ -464,3 +464,121 @@ def test_enemy_roam_kill_not_flagged_when_killing_player():
     moments = analyze_laner(timeline, MID_ID, OPPONENT_MID_ID, "MIDDLE")
     enemy_roams = [m for m in moments if m.moment_type == "enemy_roam_kill"]
     assert len(enemy_roams) == 0
+
+
+# --- Support signals ---
+# SUPP_ID = 5 (blue team), OPPONENT_SUPP_ID = 10 (red team)
+SUPP_ID = 5
+OPPONENT_SUPP_ID = 10
+
+
+def test_low_vision_flagged_when_under_4_wards():
+    # 3 wards placed in 20 min — below SUPPORT_WARD_MINIMUM (4)
+    ward_events = [
+        {"type": "WARD_PLACED", "timestamp": 200_000 + i * 200_000,
+         "creatorId": SUPP_ID, "wardType": "YELLOW_TRINKET"}
+        for i in range(3)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(200_000 + i * 200_000, [ward_events[i]])
+        for i in range(3)
+    ] + [make_frame(1_200_000, [])]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    vision = [m for m in moments if m.moment_type == "low_vision"]
+    assert len(vision) == 1
+    assert "3" in vision[0].description
+    assert vision[0].timestamp_secs == 1200
+
+
+def test_low_vision_not_flagged_when_4_or_more_wards():
+    # 4 wards — meets minimum
+    ward_events = [
+        {"type": "WARD_PLACED", "timestamp": 200_000 + i * 200_000,
+         "creatorId": SUPP_ID, "wardType": "YELLOW_TRINKET"}
+        for i in range(4)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(200_000 + i * 200_000, [ward_events[i]])
+        for i in range(4)
+    ] + [make_frame(1_200_000, [])]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    vision = [m for m in moments if m.moment_type == "low_vision"]
+    assert len(vision) == 0
+
+
+def test_low_vision_wards_after_20min_not_counted():
+    # All wards placed after 20 min — should flag as 0 wards in first 20 min
+    ward_events = [
+        {"type": "WARD_PLACED", "timestamp": 1_300_000 + i * 60_000,
+         "creatorId": SUPP_ID, "wardType": "YELLOW_TRINKET"}
+        for i in range(4)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(1_200_000, []),
+        *[make_frame(1_300_000 + i * 60_000, [ward_events[i]])
+          for i in range(4)],
+    ]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    vision = [m for m in moments if m.moment_type == "low_vision"]
+    assert len(vision) == 1
+    assert "0" in vision[0].description
+
+
+def test_ward_kill_flagged():
+    timeline = {"info": {"frames": [
+        make_frame(300_000, [
+            {"type": "WARD_KILL", "timestamp": 300_000,
+             "killerId": SUPP_ID, "wardType": "YELLOW_TRINKET"},
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    ward_kills = [m for m in moments if m.moment_type == "ward_kill"]
+    assert len(ward_kills) == 1
+    assert "ward" in ward_kills[0].description.lower()
+
+
+def test_ward_kill_capped_at_3():
+    # 5 ward kills — only first 3 should produce moments
+    ward_kill_events = [
+        {"type": "WARD_KILL", "timestamp": 300_000 + i * 60_000,
+         "killerId": SUPP_ID, "wardType": "YELLOW_TRINKET"}
+        for i in range(5)
+    ]
+    timeline = {"info": {"frames": [
+        make_frame(300_000 + i * 60_000, [ward_kill_events[i]])
+        for i in range(5)
+    ]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    ward_kills = [m for m in moments if m.moment_type == "ward_kill"]
+    assert len(ward_kills) == 3
+
+
+def test_roam_assist_support_in_mid_lane():
+    # SUPP_ID assists a kill in mid lane during laning phase
+    timeline = {"info": {"frames": [
+        make_frame(480_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480_000,
+             "killerId": 3, "victimId": 8,
+             "assistingParticipantIds": [SUPP_ID],
+             "position": {"x": 7000, "y": 7000}},  # mid lane
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    roams = [m for m in moments if m.moment_type == "roam_assist"]
+    assert len(roams) == 1
+    assert "roam" in roams[0].description.lower()
+
+
+def test_roam_assist_not_flagged_in_bot_lane():
+    # Kill in bot lane — that's the support's own lane, not a roam
+    timeline = {"info": {"frames": [
+        make_frame(480_000, [
+            {"type": "CHAMPION_KILL", "timestamp": 480_000,
+             "killerId": 4, "victimId": 9,
+             "assistingParticipantIds": [SUPP_ID],
+             "position": {"x": 10000, "y": 2000}},  # bot lane
+        ]),
+    ]}}
+    moments = analyze_laner(timeline, SUPP_ID, OPPONENT_SUPP_ID, "UTILITY")
+    roams = [m for m in moments if m.moment_type == "roam_assist"]
+    assert len(roams) == 0
