@@ -12,7 +12,7 @@ BACKFILL_DAYS = 30
 SMITE_ID = 11
 
 
-async def _analyze_and_save_match(
+async def analyze_and_save_match(
     riot_client,
     db_session,
     claude_client,
@@ -103,14 +103,14 @@ async def run_backfill(riot_client, db_session, claude_client, player) -> None:
 
     for match_id in new_ids:
         try:
-            await _analyze_and_save_match(riot_client, db_session, claude_client, player, match_id)
+            await analyze_and_save_match(riot_client, db_session, claude_client, player, match_id)
             await asyncio.sleep(3)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 print(f"[backfill] Rate limited — waiting 10s before retrying {match_id}")
                 await asyncio.sleep(10)
                 try:
-                    await _analyze_and_save_match(riot_client, db_session, claude_client, player, match_id)
+                    await analyze_and_save_match(riot_client, db_session, claude_client, player, match_id)
                     await asyncio.sleep(3)
                 except Exception as retry_err:
                     print(f"[backfill] Retry failed for {match_id}: {retry_err}")

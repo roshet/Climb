@@ -10,16 +10,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backfill import _analyze_and_save_match, run_backfill
+from backfill import analyze_and_save_match, run_backfill
 from claude_client import ClaudeClient
 from database import (
     AppState,
     clear_pending_popup, get_chat_history, get_matches, get_pending_popup,
-    get_pivotal_moments, get_player, init_db, save_chat_message, save_match,
-    save_pivotal_moments, save_player, set_pending_popup,
+    get_pivotal_moments, get_player, init_db, save_chat_message,
+    save_player, set_pending_popup,
 )
 from riot_client import RiotClient, REGIONAL_ROUTING
-from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 
 load_dotenv()
 
@@ -79,7 +78,7 @@ async def run_post_game_analysis():
         existing = get_matches(db, last_n=1)
         if existing and existing[0].match_id == match_id:
             return  # already analyzed
-        await _analyze_and_save_match(riot, db, claude, player, match_id)
+        await analyze_and_save_match(riot, db, claude, player, match_id)
         set_pending_popup(db, match_id=match_id)
     except Exception as e:
         print(f"[watcher] Error during post-game analysis: {e}")
