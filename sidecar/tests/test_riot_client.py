@@ -79,3 +79,23 @@ async def test_is_in_game_false_on_connection_error(client):
     with patch.object(client._live_http, "get", side_effect=httpx.ConnectError("refused")):
         result = await client.is_in_game()
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_get_match_ids_with_start_time(client):
+    with patch.object(client._http, "get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=200, json=lambda: [SAMPLE_MATCH_ID])
+        await client.get_recent_match_ids(SAMPLE_PUUID, count=100, start_time=1700000000)
+    call_kwargs = mock_get.call_args
+    params = call_kwargs[1]["params"]
+    assert params["startTime"] == 1700000000
+    assert params["count"] == 100
+
+
+@pytest.mark.asyncio
+async def test_get_match_ids_without_start_time_omits_param(client):
+    with patch.object(client._http, "get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=200, json=lambda: [SAMPLE_MATCH_ID])
+        await client.get_recent_match_ids(SAMPLE_PUUID, count=5)
+    params = mock_get.call_args[1]["params"]
+    assert "startTime" not in params

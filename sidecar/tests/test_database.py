@@ -67,3 +67,28 @@ def test_pending_popup_flag(db):
     assert get_pending_popup(db) == "NA1_123"
     clear_pending_popup(db)
     assert get_pending_popup(db) is None
+
+
+def test_get_all_match_ids_returns_set(db):
+    save_match(db, {
+        "match_id": "NA1_AAA",
+        "played_at": datetime(2026, 4, 1, 20, 0),
+        "champion": "Jinx", "role": "BOTTOM", "result": "win",
+        "duration_secs": 1800, "kda": "5/2/8", "cs": 150,
+        "gold_earned": 12000, "vision_score": 20, "raw_timeline": {},
+    })
+    save_match(db, {
+        "match_id": "NA1_BBB",
+        "played_at": datetime(2026, 4, 2, 20, 0),
+        "champion": "Caitlyn", "role": "BOTTOM", "result": "loss",
+        "duration_secs": 1500, "kda": "3/4/6", "cs": 120,
+        "gold_earned": 10000, "vision_score": 18, "raw_timeline": {},
+    })
+    from database import get_all_match_ids
+    ids = get_all_match_ids(db)
+    assert ids == {"NA1_AAA", "NA1_BBB"}
+
+
+def test_get_all_match_ids_empty(db):
+    from database import get_all_match_ids
+    assert get_all_match_ids(db) == set()

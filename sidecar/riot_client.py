@@ -24,9 +24,12 @@ class RiotClient:
         r.raise_for_status()
         return r.json()["puuid"]
 
-    async def get_recent_match_ids(self, puuid: str, count: int = 20) -> list[str]:
+    async def get_recent_match_ids(self, puuid: str, count: int = 20, start_time: int | None = None) -> list[str]:
         url = f"https://{self.regional}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
-        r = await self._http.get(url, params={"count": count})
+        params: dict = {"count": count}
+        if start_time is not None:
+            params["startTime"] = start_time
+        r = await self._http.get(url, params=params)
         r.raise_for_status()
         return r.json()
 

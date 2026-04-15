@@ -85,6 +85,10 @@ def get_matches(db: Session, champion: Optional[str] = None, result: Optional[st
     return q.order_by(Match.played_at.desc()).limit(last_n).all()
 
 
+def get_all_match_ids(db: Session) -> set[str]:
+    return {row[0] for row in db.query(Match.match_id).all()}
+
+
 # --- Pivotal moment queries ---
 
 def save_pivotal_moments(db: Session, match_id: str, moments: list[dict]) -> None:
