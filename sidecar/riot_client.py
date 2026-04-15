@@ -1,5 +1,4 @@
 import httpx
-from typing import Optional
 
 REGIONAL_ROUTING = {
     "NA1": "americas", "BR1": "americas", "LAN": "americas", "LAS": "americas",

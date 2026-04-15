@@ -3,7 +3,8 @@ from database import (
     Match, PivotalMoment, ChatMessage, Player,
     save_match, get_matches, save_pivotal_moments,
     get_pivotal_moments, save_chat_message, get_chat_history,
-    save_player, get_player, set_pending_popup, get_pending_popup, clear_pending_popup
+    save_player, get_player, set_pending_popup, get_pending_popup, clear_pending_popup,
+    get_all_match_ids
 )
 
 def test_save_and_retrieve_match(db):
@@ -84,11 +85,9 @@ def test_get_all_match_ids_returns_set(db):
         "duration_secs": 1500, "kda": "3/4/6", "cs": 120,
         "gold_earned": 10000, "vision_score": 18, "raw_timeline": {},
     })
-    from database import get_all_match_ids
     ids = get_all_match_ids(db)
     assert ids == {"NA1_AAA", "NA1_BBB"}
 
 
 def test_get_all_match_ids_empty(db):
-    from database import get_all_match_ids
     assert get_all_match_ids(db) == set()
