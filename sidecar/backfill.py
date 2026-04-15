@@ -111,6 +111,7 @@ async def run_backfill(riot_client, db_session, claude_client, player) -> None:
                 await asyncio.sleep(10)
                 try:
                     await _analyze_and_save_match(riot_client, db_session, claude_client, player, match_id)
+                    await asyncio.sleep(3)
                 except Exception as retry_err:
                     print(f"[backfill] Retry failed for {match_id}: {retry_err}")
             else:

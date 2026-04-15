@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from datetime import datetime, timezone
 from database import save_match, save_player, get_all_match_ids
 import backfill as backfill_module
 from backfill import run_backfill
@@ -134,6 +134,7 @@ async def test_backfill_uses_start_time_30_days_ago(db):
             mock_dt.fromtimestamp = datetime.fromtimestamp
             await run_backfill(mock_riot, db, mock_claude, player)
 
+    mock_dt.now.assert_called_with(timezone.utc)
     call_kwargs = mock_riot.get_recent_match_ids.call_args
     start_time = call_kwargs[1]["start_time"]
     expected = int(1714000000.0 - 30 * 24 * 3600)
