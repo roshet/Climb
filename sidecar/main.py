@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backfill import _analyze_and_save_match, run_backfill
 from claude_client import ClaudeClient
 from database import (
     AppState,
@@ -32,6 +33,21 @@ riot = RiotClient(api_key=RIOT_API_KEY, region=REGION)
 claude = ClaudeClient(api_key=GEMINI_API_KEY, db=db)
 
 _watcher_task: Optional[asyncio.Task] = None
+_backfill_running = False
+
+
+async def backfill_history() -> None:
+    global _backfill_running
+    if _backfill_running:
+        return
+    _backfill_running = True
+    try:
+        player = get_player(db)
+        if not player:
+            return
+        await run_backfill(riot, db, claude, player)
+    finally:
+        _backfill_running = False
 
 
 async def game_end_watcher():
@@ -63,81 +79,7 @@ async def run_post_game_analysis():
         existing = get_matches(db, last_n=1)
         if existing and existing[0].match_id == match_id:
             return  # already analyzed
-
-        match_data = await riot.get_match(match_id)
-        timeline_data = await riot.get_timeline(match_id)
-
-        info = match_data["info"]
-        puuid = player.riot_puuid
-        participants = info["participants"]
-        participant = next(p for p in participants if p["puuid"] == puuid)
-        participant_index = participants.index(participant) + 1  # 1-indexed
-        role = participant.get("teamPosition", "UNKNOWN")
-        champion = participant["championName"]
-
-        # Resolve enemy jungler by Smite (summoner spell ID 11)
-        SMITE_ID = 11
-        player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
-        enemy_jungler_entry = next(
-            ((i + 1, p) for i, p in enumerate(participants)
-             if (i + 1) not in player_team_ids
-             and (p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID)),
-            None,
-        )
-        enemy_jungler_id = enemy_jungler_entry[0] if enemy_jungler_entry else None
-
-        lane_opponent_entry = next(
-            ((i + 1, p) for i, p in enumerate(participants)
-             if (i + 1) not in player_team_ids
-             and p.get("teamPosition") == role),
-            None,
-        )
-        lane_opponent_id = lane_opponent_entry[0] if lane_opponent_entry else None
-
-        save_match(db, {
-            "match_id": match_id,
-            "played_at": datetime.fromtimestamp(info["gameStartTimestamp"] / 1000, tz=timezone.utc),
-            "champion": participant["championName"],
-            "role": participant.get("teamPosition", "UNKNOWN"),
-            "result": "win" if participant["win"] else "loss",
-            "duration_secs": info["gameDuration"],
-            "kda": f"{participant['kills']}/{participant['deaths']}/{participant['assists']}",
-            "cs": participant["totalMinionsKilled"],
-            "gold_earned": participant["goldEarned"],
-            "vision_score": participant["visionScore"],
-            "raw_timeline": timeline_data,
-        })
-
-        moments = analyze_timeline(
-            timeline_data,
-            participant_id=participant_index,
-            enemy_jungler_id=enemy_jungler_id,
-            role=role,
-            champion=champion,
-            lane_opponent_id=lane_opponent_id,
-        )
-        side = "blue" if participant_index in TEAM_100_IDS else "red"
-        game_context = {
-            "participant_id": participant_index,
-            "champion": champion,
-            "role": role,
-            "side": side,
-            "result": "win" if participant["win"] else "loss",
-            "kda": f"{participant['kills']}/{participant['deaths']}/{participant['assists']}",
-            "duration_secs": info["gameDuration"],
-        }
-        enriched = claude.generate_coaching_notes(moments, game_context, timeline_data)
-        save_pivotal_moments(db, match_id, [
-            {
-                "timestamp_secs": m.timestamp_secs,
-                "moment_type": m.moment_type,
-                "description": m.description,
-                "counterfactual": m.counterfactual,
-                "gold_impact": m.gold_impact,
-            }
-            for m in enriched
-        ])
-
+        await _analyze_and_save_match(riot, db, claude, player, match_id)
         set_pending_popup(db, match_id=match_id)
     except Exception as e:
         print(f"[watcher] Error during post-game analysis: {e}")
@@ -147,6 +89,7 @@ async def run_post_game_analysis():
 async def lifespan(app: FastAPI):
     global _watcher_task
     _watcher_task = asyncio.create_task(game_end_watcher())
+    asyncio.create_task(backfill_history())
     yield
     if _watcher_task:
         _watcher_task.cancel()
@@ -259,6 +202,7 @@ async def setup(req: SetupRequest):
     try:
         puuid = await riot.get_puuid_by_summoner(req.summoner_name, req.tag_line)
         save_player(db, summoner_name=req.summoner_name, puuid=puuid, region=req.region)
+        asyncio.create_task(backfill_history())
         return {"ok": True, "puuid": puuid}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
