@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backfill import analyze_and_save_match, run_backfill
+from pattern_detector import detect_patterns
 from claude_client import ClaudeClient
 from database import (
     AppState,
@@ -120,6 +121,25 @@ def clear_status():
     return {"ok": True}
 
 
+@app.get("/patterns")
+def get_patterns():
+    patterns = detect_patterns(db)
+    return {
+        "patterns": [
+            {
+                "moment_type": p.moment_type,
+                "label": p.label,
+                "games_seen": p.games_seen,
+                "total_games": p.total_games,
+                "win_rate_with": round(p.win_rate_with, 3),
+                "overall_win_rate": round(p.overall_win_rate, 3),
+                "summary": p.summary,
+            }
+            for p in patterns
+        ]
+    }
+
+
 @app.get("/player")
 def get_player_profile():
     player = get_player(db)
@@ -177,6 +197,31 @@ def chat(req: ChatRequest):
         moments = get_pivotal_moments(db, [req.match_id])
         if moments:
             match_context = "\n".join(f"- {m.description} {m.counterfactual}" for m in moments)
+
+    try:
+        patterns = detect_patterns(db)
+        if patterns:
+            issues = [p for p in patterns if p.label == "recurring_issue"]
+            wins = [p for p in patterns if p.label == "win_condition"]
+            lines: list[str] = []
+            if issues:
+                lines.append("Recurring issues (last 20 games):")
+                lines.extend(
+                    f"- {p.moment_type}: {p.games_seen}/{p.total_games} games, "
+                    f"{int(p.win_rate_with * 100)}% win rate (overall {int(p.overall_win_rate * 100)}%)"
+                    for p in issues
+                )
+            if wins:
+                lines.append("Win conditions:")
+                lines.extend(
+                    f"- {p.moment_type}: {p.games_seen}/{p.total_games} games, "
+                    f"{int(p.win_rate_with * 100)}% win rate"
+                    for p in wins
+                )
+            pattern_context = "\n".join(lines)
+            match_context = (match_context + "\n\n" + pattern_context) if match_context else pattern_context
+    except Exception:
+        pass  # pattern injection is best-effort; chat works without it
 
     response = claude.chat(
         summoner_name=player.summoner_name,
