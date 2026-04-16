@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+from typing import Literal
 from sqlalchemy.orm import Session
 from database import get_matches, get_pivotal_moments
+
+MIN_PATTERN_GAMES = 3
 
 MOMENT_TYPE_LABELS: dict[str, str] = {
     "lane_death": "Lane Deaths",
@@ -24,7 +27,7 @@ MOMENT_TYPE_LABELS: dict[str, str] = {
 @dataclass
 class PatternResult:
     moment_type: str
-    label: str            # "recurring_issue" or "win_condition"
+    label: Literal["recurring_issue", "win_condition"]
     games_seen: int
     total_games: int
     win_rate_with: float
@@ -35,7 +38,7 @@ class PatternResult:
 def detect_patterns(db: Session, last_n: int = 20) -> list[PatternResult]:
     matches = get_matches(db, last_n=last_n)
     total_games = len(matches)
-    if total_games < 3:
+    if total_games < MIN_PATTERN_GAMES:
         return []
 
     overall_wins = sum(1 for m in matches if m.result == "win")
@@ -60,7 +63,7 @@ def detect_patterns(db: Session, last_n: int = 20) -> list[PatternResult]:
     results: list[PatternResult] = []
     for moment_type, game_ids in type_games.items():
         games_seen = len(game_ids)
-        if games_seen < 3:
+        if games_seen < MIN_PATTERN_GAMES:
             continue
 
         wins_with = sum(1 for mid in game_ids if result_by_id[mid] == "win")

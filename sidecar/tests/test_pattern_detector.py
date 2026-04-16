@@ -101,6 +101,8 @@ def test_sorted_issues_first_then_conditions(db):
             types.append("solo_kill")
         _make_match(db, f"NA1_{i}", result, BASE_DATE + timedelta(days=i), types)
     patterns = detect_patterns(db)
+    assert any(p.label == "recurring_issue" for p in patterns), "expected at least one recurring_issue"
+    assert any(p.label == "win_condition" for p in patterns), "expected at least one win_condition"
     labels = [p.label for p in patterns]
     seen_win_condition = False
     for label in labels:
@@ -108,6 +110,21 @@ def test_sorted_issues_first_then_conditions(db):
             seen_win_condition = True
         if seen_win_condition:
             assert label == "win_condition", "recurring_issue appeared after win_condition"
+
+
+def test_detects_recurring_issue_near_boundary(db):
+    # lane_death in 7 games: 1 win, 6 losses
+    # overall: 5 wins / 10 games = 0.5
+    # win_rate_with = 1/7 ≈ 0.143, delta ≈ 0.357 > 0.10 → should be recurring_issue
+    for i in range(10):
+        result = "win" if i < 5 else "loss"
+        # lane_death appears in games 3-9 (7 games): game 3 is a win (i=3 < 5), games 4-9 are losses
+        types = ["lane_death"] if i >= 3 else []
+        _make_match(db, f"NA1_{i}", result, BASE_DATE + timedelta(days=i), types)
+    patterns = detect_patterns(db)
+    issue = next((p for p in patterns if p.moment_type == "lane_death"), None)
+    assert issue is not None
+    assert issue.label == "recurring_issue"
 
 
 def test_capped_at_five(db):
