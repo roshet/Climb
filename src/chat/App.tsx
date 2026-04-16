@@ -14,7 +14,35 @@ interface Message {
   content: string
 }
 
+interface Pattern {
+  moment_type: string
+  label: 'recurring_issue' | 'win_condition'
+  games_seen: number
+  total_games: number
+  win_rate_with: number
+  overall_win_rate: number
+  summary: string
+}
+
 const SESSION_ID = `session-${Date.now()}`
+
+const MOMENT_LABELS: Record<string, string> = {
+  lane_death: 'Lane Deaths',
+  cs_differential: 'CS Deficit',
+  gold_differential: 'Gold Deficit',
+  turret_plates_lost: 'Plates Lost',
+  split_push_death: 'Split Push Deaths',
+  enemy_roam_kill: 'Enemy Roams',
+  low_vision: 'Low Vision',
+  objective_missed: 'Missed Objectives',
+  tower_lost: 'Towers Lost',
+  death: 'Deaths',
+  solo_kill: 'Solo Kills',
+  objective_secured: 'Objectives Secured',
+  roam_kill: 'Roam Kills',
+  roam_assist: 'Roam Assists',
+  ward_kill: 'Vision Control',
+}
 
 function ChatApp() {
   const [isSetup, setIsSetup] = useState<boolean | null>(null)
@@ -25,6 +53,7 @@ function ChatApp() {
   const [matchId] = useState<string | null>(
     new URLSearchParams(window.location.search).get('matchId')
   )
+  const [patterns, setPatterns] = useState<Pattern[]>([])
 
   const port = window.sidecar?.port ?? '8765'
 
@@ -37,6 +66,14 @@ function ChatApp() {
       })
       .catch(() => setIsSetup(null))
   }, [port])
+
+  useEffect(() => {
+    if (!isSetup) return
+    fetch(`http://localhost:${port}/patterns`)
+      .then(r => r.ok ? r.json() : { patterns: [] })
+      .then((data: { patterns: Pattern[] }) => setPatterns(data.patterns))
+      .catch(() => {})
+  }, [port, isSetup])
 
   const sendMessage = useCallback(async (text: string) => {
     setMessages(prev => [...prev, { role: 'user', content: text }])
@@ -72,9 +109,31 @@ function ChatApp() {
   return (
     <div className="bg-[#1a1a2e] h-screen flex flex-col text-white font-sans">
       <div className="border-b border-white/10 px-4 py-3 flex items-center justify-between">
-        <h1 className="font-bold text-base">LoL Analyst</h1>
+        <h1 className="font-bold text-base">Climb</h1>
         {matchId && <span className="text-xs text-blue-400">Viewing specific game</span>}
       </div>
+      {patterns.length > 0 && (
+        <div className="px-4 py-2 border-b border-white/10 flex gap-2 overflow-x-auto flex-shrink-0">
+          {patterns.map((p) => (
+            <button
+              key={p.moment_type}
+              onClick={() => sendMessage(
+                `Tell me about my ${(MOMENT_LABELS[p.moment_type] ?? p.moment_type.replace(/_/g, ' ')).toLowerCase()} pattern`
+              )}
+              className={`flex-shrink-0 text-left px-3 py-2 rounded-lg border-l-4 bg-white/5 hover:bg-white/10 transition-colors ${
+                p.label === 'recurring_issue' ? 'border-red-400' : 'border-green-400'
+              }`}
+            >
+              <div className="text-xs font-semibold whitespace-nowrap">
+                {MOMENT_LABELS[p.moment_type] ?? p.moment_type}
+              </div>
+              <div className="text-xs text-gray-400 whitespace-nowrap">
+                {p.games_seen} of {p.total_games} · {Math.round(p.win_rate_with * 100)}% WR
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
       <MessageList messages={messages} />
       {loading && (
         <div className="px-4 pb-1">
