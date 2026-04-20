@@ -1,6 +1,6 @@
 import asyncio
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import httpx
@@ -84,7 +84,10 @@ class LiveGameMonitor:
                 continue
             self._processed_event_ids.add(event_id)
             name = event.get("EventName", "")
-            if name == "DragonKill":
+            if name == "GameEnd":
+                self._reset_game_state()
+                return
+            elif name == "DragonKill":
                 self._next_dragon_spawn = event.get("EventTime", 0.0) + DRAGON_RESPAWN_DELAY
                 self._add_alert("Next Dragon in 5:00 — stay aware", "objective", "dragon_kill")
             elif name == "BaronKill":
