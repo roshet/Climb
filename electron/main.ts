@@ -199,7 +199,7 @@ function createOverlayWindow() {
     ? 'http://localhost:5173/overlay/index.html'
     : `file://${path.join(__dirname, '../renderer/overlay/index.html')}`
   overlayWindow.loadURL(url)
-  overlayWindow.on('closed', () => { overlayWindow = null; _wasInGame = false })
+  overlayWindow.on('closed', () => { overlayWindow = null })
 }
 
 function destroyOverlayWindow() {

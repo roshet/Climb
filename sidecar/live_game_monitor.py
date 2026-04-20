@@ -123,6 +123,7 @@ class LiveGameMonitor:
             pass
 
     def _reset_game_state(self) -> None:
+        self._in_game = False
         self._alerts = []
         self._processed_event_ids = set()
         self._next_dragon_spawn = DRAGON_FIRST_SPAWN
