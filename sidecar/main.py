@@ -96,10 +96,11 @@ async def lifespan(app: FastAPI):
     yield
     if _watcher_task:
         _watcher_task.cancel()
+    monitor_task = live_monitor._task
     live_monitor.stop()
-    if live_monitor._task:
+    if monitor_task:
         try:
-            await live_monitor._task
+            await monitor_task
         except asyncio.CancelledError:
             pass
     await riot.close()
