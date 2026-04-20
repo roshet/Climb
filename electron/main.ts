@@ -15,6 +15,8 @@ let popupWindow: BrowserWindow | null = null
 let setupWindow: BrowserWindow | null = null
 let sidecarProcess: ChildProcess | null = null
 let statusPollInterval: ReturnType<typeof setInterval> | null = null
+let overlayWindow: BrowserWindow | null = null
+let _wasInGame = false
 
 // --- Config ---
 
@@ -174,19 +176,65 @@ function showPopup(matchId: string) {
   popupWindow.on('closed', () => { popupWindow = null })
 }
 
+function createOverlayWindow() {
+  if (overlayWindow) return
+  const { width } = screen.getPrimaryDisplay().workAreaSize
+  overlayWindow = new BrowserWindow({
+    width: 340,
+    height: 400,
+    x: width - 360,
+    y: 20,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    focusable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+    },
+  })
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver')
+  const url = isDev
+    ? 'http://localhost:5173/overlay/index.html'
+    : `file://${path.join(__dirname, '../renderer/overlay/index.html')}`
+  overlayWindow.loadURL(url)
+  overlayWindow.on('closed', () => { overlayWindow = null })
+}
+
+function destroyOverlayWindow() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.close()
+  }
+  overlayWindow = null
+}
+
 // --- Status Polling ---
 
 async function pollStatus() {
   try {
-    const res = await fetch(`${SIDECAR_URL}/status`)
-    if (!res.ok) return
-    const data = await res.json() as { pending_popup: string | null; open_chat: string | null }
-    if (data.pending_popup) {
-      showPopup(data.pending_popup)
-      await fetch(`${SIDECAR_URL}/status/clear`, { method: 'POST' })
+    const [statusRes, liveRes] = await Promise.all([
+      fetch(`${SIDECAR_URL}/status`),
+      fetch(`${SIDECAR_URL}/live`),
+    ])
+    if (statusRes.ok) {
+      const data = await statusRes.json() as { pending_popup: string | null; open_chat: string | null }
+      if (data.pending_popup) {
+        showPopup(data.pending_popup)
+        await fetch(`${SIDECAR_URL}/status/clear`, { method: 'POST' })
+      }
+      if (data.open_chat !== null && data.open_chat !== undefined) {
+        createChatWindow(data.open_chat || undefined)
+      }
     }
-    if (data.open_chat !== null && data.open_chat !== undefined) {
-      createChatWindow(data.open_chat || undefined)
+    if (liveRes.ok) {
+      const liveData = await liveRes.json() as { in_game: boolean }
+      if (liveData.in_game && !_wasInGame) {
+        createOverlayWindow()
+      } else if (!liveData.in_game && _wasInGame) {
+        destroyOverlayWindow()
+      }
+      _wasInGame = liveData.in_game
     }
   } catch {
     // Sidecar not ready yet
@@ -277,5 +325,6 @@ app.on('window-all-closed', (e: Event) => {
 
 app.on('before-quit', () => {
   if (statusPollInterval) clearInterval(statusPollInterval)
+  destroyOverlayWindow()
   stopSidecar()
 })
