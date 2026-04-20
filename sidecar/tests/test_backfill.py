@@ -154,3 +154,19 @@ async def test_analyze_and_save_match_passes_patterns_kwarg(db):
 
     call_kwargs = mock_claude.generate_coaching_notes.call_args[1]
     assert "patterns" in call_kwargs
+
+
+@pytest.mark.asyncio
+async def test_analyze_and_save_match_passes_none_patterns_on_detect_failure(db):
+    from backfill import analyze_and_save_match
+
+    mock_riot = make_mock_riot(["NA1_NEW"])
+    mock_claude = make_mock_claude()
+    player = make_player()
+
+    with patch("backfill.detect_patterns", side_effect=Exception("db error")):
+        with patch("backfill.asyncio.sleep", new_callable=AsyncMock):
+            await analyze_and_save_match(mock_riot, db, mock_claude, player, "NA1_NEW")
+
+    call_kwargs = mock_claude.generate_coaching_notes.call_args[1]
+    assert call_kwargs["patterns"] is None
