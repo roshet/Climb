@@ -199,7 +199,7 @@ function createOverlayWindow() {
     ? 'http://localhost:5173/overlay/index.html'
     : `file://${path.join(__dirname, '../renderer/overlay/index.html')}`
   overlayWindow.loadURL(url)
-  overlayWindow.on('closed', () => { overlayWindow = null })
+  overlayWindow.on('closed', () => { overlayWindow = null; _wasInGame = false })
 }
 
 function destroyOverlayWindow() {
@@ -213,10 +213,7 @@ function destroyOverlayWindow() {
 
 async function pollStatus() {
   try {
-    const [statusRes, liveRes] = await Promise.all([
-      fetch(`${SIDECAR_URL}/status`),
-      fetch(`${SIDECAR_URL}/live`),
-    ])
+    const statusRes = await fetch(`${SIDECAR_URL}/status`)
     if (statusRes.ok) {
       const data = await statusRes.json() as { pending_popup: string | null; open_chat: string | null }
       if (data.pending_popup) {
@@ -227,18 +224,22 @@ async function pollStatus() {
         createChatWindow(data.open_chat || undefined)
       }
     }
+  } catch { /* sidecar not ready */ }
+
+  try {
+    const liveRes = await fetch(`${SIDECAR_URL}/live`)
     if (liveRes.ok) {
       const liveData = await liveRes.json() as { in_game: boolean }
-      if (liveData.in_game && !_wasInGame) {
-        createOverlayWindow()
-      } else if (!liveData.in_game && _wasInGame) {
-        destroyOverlayWindow()
+      if (typeof liveData.in_game === 'boolean') {
+        if (liveData.in_game && !_wasInGame) {
+          createOverlayWindow()
+        } else if (!liveData.in_game && _wasInGame) {
+          destroyOverlayWindow()
+        }
+        _wasInGame = liveData.in_game  // always sync, regardless of transition
       }
-      _wasInGame = liveData.in_game
     }
-  } catch {
-    // Sidecar not ready yet
-  }
+  } catch { /* sidecar not ready */ }
 }
 
 // --- IPC Handlers ---
@@ -284,6 +285,7 @@ ipcMain.on('setup-complete', async (_event, data: Config) => {
   createChatWindow()
 
   if (statusPollInterval) clearInterval(statusPollInterval)
+  _wasInGame = false
   statusPollInterval = setInterval(pollStatus, 5000)
 })
 
@@ -325,6 +327,7 @@ app.on('window-all-closed', (e: Event) => {
 
 app.on('before-quit', () => {
   if (statusPollInterval) clearInterval(statusPollInterval)
+  _wasInGame = false
   destroyOverlayWindow()
   stopSidecar()
 })
