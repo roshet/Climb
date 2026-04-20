@@ -2,6 +2,7 @@ node_modules/
 dist/
 release/
 out/
+dist-installer/
 .env
 __pycache__/
 *.pyc
@@ -13,3 +14,4 @@ Thumbs.db
 .coverage
 htmlcov/
 .worktrees/
+.superpowers/
