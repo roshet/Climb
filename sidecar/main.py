@@ -20,6 +20,7 @@ from database import (
     save_player, set_pending_popup,
 )
 from riot_client import RiotClient, REGIONAL_ROUTING
+from live_game_monitor import LiveGameMonitor
 
 load_dotenv()
 
@@ -31,6 +32,7 @@ engine = init_db(os.environ.get("DB_PATH", "analyst.db"))
 db = Session(engine)
 riot = RiotClient(api_key=RIOT_API_KEY, region=REGION)
 claude = ClaudeClient(api_key=GEMINI_API_KEY, db=db)
+live_monitor = LiveGameMonitor(db)
 
 _watcher_task: Optional[asyncio.Task] = None
 _backfill_running = False
@@ -90,9 +92,11 @@ async def lifespan(app: FastAPI):
     global _watcher_task
     _watcher_task = asyncio.create_task(game_end_watcher())
     asyncio.create_task(backfill_history())
+    live_monitor.start()
     yield
     if _watcher_task:
         _watcher_task.cancel()
+    live_monitor.stop()
     await riot.close()
     db.close()
 
@@ -138,6 +142,11 @@ def get_patterns():
             for p in patterns
         ]
     }
+
+
+@app.get("/live")
+def get_live():
+    return live_monitor.get_state()
 
 
 @app.get("/player")
