@@ -21,7 +21,8 @@ def _build_pattern_context(patterns: list) -> str:
         return ""
     issues = [p for p in patterns if p.label == "recurring_issue"]
     wins = [p for p in patterns if p.label == "win_condition"]
-    lines = ["Player's cross-game patterns (last 20 games):"]
+    total = patterns[0].total_games
+    lines = [f"Player's cross-game patterns (last {total} games):"]
     if issues:
         issue_str = ", ".join(
             f"{p.moment_type} ({p.games_seen}/{p.total_games} games, {int(p.win_rate_with * 100)}% WR)"
@@ -40,6 +41,7 @@ def _build_pattern_context(patterns: list) -> str:
         "note that this is part of a broader pattern across their games."
     )
     return "\n".join(lines)
+
 
 TOOL_DECLARATIONS = [
     types.FunctionDeclaration(
