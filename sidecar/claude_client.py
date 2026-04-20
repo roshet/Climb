@@ -5,6 +5,42 @@ from google.genai import types
 from database import get_matches, get_pivotal_moments
 from timeline_analyzer import TEAM_100_IDS, TEAM_200_IDS
 
+ROLE_GUIDANCE: dict[str, str] = {
+    "TOP": "Focus on wave management, split push decisions, and teleport usage. Reference the lane opponent and proximity of the enemy jungler.",
+    "JUNGLE": "Focus on pathing efficiency, objective timing, and gank setup. Reference which lanes were ahead/behind and dragon/baron spawn timers.",
+    "MIDDLE": "Focus on roam timing, wave control before leaving lane, and mid-game priority. Reference the lane opponent and river vision.",
+    "BOTTOM": "Focus on CS efficiency, lane partner synergy, and positioning relative to the support. Reference the lane opponent and tower pressure.",
+    "UTILITY": "Focus on vision control, peel timing, and roam opportunities. Reference ward placements and support item usage.",
+}
+
+_ROLE_GUIDANCE_FALLBACK = "Focus on positioning, objective control, and decision-making at the moment of the event."
+
+
+def _build_pattern_context(patterns: list) -> str:
+    if not patterns:
+        return ""
+    issues = [p for p in patterns if p.label == "recurring_issue"]
+    wins = [p for p in patterns if p.label == "win_condition"]
+    lines = ["Player's cross-game patterns (last 20 games):"]
+    if issues:
+        issue_str = ", ".join(
+            f"{p.moment_type} ({p.games_seen}/{p.total_games} games, {int(p.win_rate_with * 100)}% WR)"
+            for p in issues
+        )
+        lines.append(f"Recurring issues: {issue_str}")
+    if wins:
+        win_str = ", ".join(
+            f"{p.moment_type} ({p.games_seen}/{p.total_games} games, {int(p.win_rate_with * 100)}% WR)"
+            for p in wins
+        )
+        lines.append(f"Win conditions: {win_str}")
+    lines.append(
+        "\nWhen writing coaching notes, reference these patterns where relevant. "
+        "For example, if the player has a recurring issue and this moment involves that same problem, "
+        "note that this is part of a broader pattern across their games."
+    )
+    return "\n".join(lines)
+
 TOOL_DECLARATIONS = [
     types.FunctionDeclaration(
         name="get_matches",
@@ -233,6 +269,7 @@ class ClaudeClient:
         moments: list,
         game_context: dict,
         timeline: dict,
+        patterns: list | None = None,
     ) -> list:
         """
         Generate AI coaching notes for all moments in a single Gemini call.
@@ -275,20 +312,31 @@ class ClaudeClient:
 
         moments_text = "\n---\n".join(moment_blocks)
 
-        prompt = (
+        # Build prompt parts
+        prompt_parts: list[str] = []
+        pattern_block = _build_pattern_context(patterns or [])
+        if pattern_block:
+            prompt_parts.append(pattern_block)
+            prompt_parts.append("")
+
+        role_guidance = ROLE_GUIDANCE.get(role, _ROLE_GUIDANCE_FALLBACK)
+
+        prompt_parts.append(
             f"You are coaching a {champion} {role.lower()}. {header}\n\n"
-            f"For each moment below, write a 3-4 sentence coaching note. Rules:\n"
-            f"- Be specific to the {role.lower()} role\n"
-            f"- Reference what was happening in the surrounding context\n"
-            f"- Give one concrete, achievable alternative action\n"
-            f"- Use encouraging language for positive moments "
-            f"(gank_assist, baron_secured, dragon_stack, solo_kill, objective_secured)\n"
-            f"- Describe game state for mistakes — don't moralize\n"
-            f"- Keep each note to 3-4 sentences maximum\n\n"
+            f"For each moment below, write a coaching note in exactly 3 sentences:\n"
+            f"- Sentence 1: What happened and the game state at that moment (reference surrounding context)\n"
+            f"- Sentence 2: Why it mattered — the impact on gold, objectives, or map control\n"
+            f"- Sentence 3: One concrete, achievable alternative action specific to a {role.lower()} player\n\n"
+            f"Role-specific guidance for {role.lower()}:\n{role_guidance}\n\n"
+            f"Tone: encouraging for positive moments (solo_kill, objective_secured, roam_kill, roam_assist, "
+            f"ward_kill, baron_secured, dragon_stack, gank_assist). "
+            f"Describe game state without moralizing for mistakes.\n\n"
             f"{moments_text}\n\n"
             f"Return ONLY valid JSON, no other text: "
             f'[{{"id": 0, "coaching": "..."}}, ...]'
         )
+
+        prompt = "\n".join(prompt_parts)
 
         try:
             response = self.client.models.generate_content(
