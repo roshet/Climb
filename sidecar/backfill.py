@@ -82,7 +82,8 @@ async def analyze_and_save_match(
     }
     try:
         game_patterns = detect_patterns(db_session)
-    except Exception:
+    except Exception as e:
+        print(f"[backfill] detect_patterns failed ({e}); skipping pattern context")
         game_patterns = None
     enriched = claude_client.generate_coaching_notes(moments, game_context, timeline_data, patterns=game_patterns)
     save_pivotal_moments(db_session, match_id, [
