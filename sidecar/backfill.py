@@ -6,6 +6,7 @@ import httpx
 from database import (
     get_all_match_ids, save_match, save_pivotal_moments,
 )
+from pattern_detector import detect_patterns
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 
 BACKFILL_DAYS = 30
@@ -79,7 +80,11 @@ async def analyze_and_save_match(
         "kda": f"{participant['kills']}/{participant['deaths']}/{participant['assists']}",
         "duration_secs": info["gameDuration"],
     }
-    enriched = claude_client.generate_coaching_notes(moments, game_context, timeline_data)
+    try:
+        game_patterns = detect_patterns(db_session)
+    except Exception:
+        game_patterns = None
+    enriched = claude_client.generate_coaching_notes(moments, game_context, timeline_data, patterns=game_patterns)
     save_pivotal_moments(db_session, match_id, [
         {
             "timestamp_secs": m.timestamp_secs,

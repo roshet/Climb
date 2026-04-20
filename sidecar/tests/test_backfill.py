@@ -139,3 +139,18 @@ async def test_backfill_uses_start_time_30_days_ago(db):
     start_time = call_kwargs[1]["start_time"]
     expected = int(1714000000.0 - 30 * 24 * 3600)
     assert start_time == expected
+
+
+@pytest.mark.asyncio
+async def test_analyze_and_save_match_passes_patterns_kwarg(db):
+    from backfill import analyze_and_save_match
+
+    mock_riot = make_mock_riot(["NA1_NEW"])
+    mock_claude = make_mock_claude()
+    player = make_player()
+
+    with patch("backfill.asyncio.sleep", new_callable=AsyncMock):
+        await analyze_and_save_match(mock_riot, db, mock_claude, player, "NA1_NEW")
+
+    call_kwargs = mock_claude.generate_coaching_notes.call_args[1]
+    assert "patterns" in call_kwargs
