@@ -55,9 +55,11 @@ def test_back_excluded_after_death():
 
 def test_position_back_after_death_window_purchase():
     # Bug scenario: death at 5s, purchase during respawn window at 15s (excluded),
-    # then position jump to fountain at 60s (real voluntary recall, should be included)
+    # then position jump to fountain at 90s (real voluntary recall, should be included)
     # Player: blue side (team 100), fountain at (523, 523)
     # Level 5: respawn = 8 + 5*2.5 = 20.5s → excluded until 25.5s
+    # Gap from purchase (15s) to position back (90s) = 75s > BACK_DEDUP_WINDOW_SECS (60s),
+    # so even if the purchase were a dedup anchor it wouldn't block — but it isn't (excluded).
     frames = [
         make_frame(0, [
             {"type": "CHAMPION_KILL", "timestamp": 5_000,
@@ -67,9 +69,9 @@ def test_position_back_after_death_window_purchase():
             {"type": "ITEM_PURCHASED", "participantId": PLAYER,
              "itemId": 1001, "timestamp": 15_000},
         ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 350}, levels={PLAYER: 5}),
-        make_frame(60_000, [
+        make_frame(90_000, [
         ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 100}, levels={PLAYER: 5}),
     ]
     backs = _collect_backs(frames, participant_id=PLAYER)
     assert len(backs) == 1
-    assert backs[0]["timestamp_secs"] == 60.0
+    assert backs[0]["timestamp_secs"] == 90.0
