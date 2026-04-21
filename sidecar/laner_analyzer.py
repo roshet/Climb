@@ -23,6 +23,26 @@ SUPPORT_WARD_MINIMUM = 4
 SUPPORT_VISION_WINDOW_MS = 1_200_000
 WARD_KILL_CAP = 3
 
+# --- Back timing ---
+FOUNTAIN_BLUE = (523, 523)
+FOUNTAIN_RED = (14340, 14390)
+FOUNTAIN_RADIUS = 1500
+OBJECTIVE_DANGER_WINDOW_SECS = 90
+LATE_GAME_CUTOFF_SECS = 1200
+BACK_DEDUP_WINDOW_SECS = 60
+GOLD_WASTE_THRESHOLD = 300
+GOLD_MINOR_THRESHOLD = 500
+RESPAWN_BASE_SECS = 8
+RESPAWN_PER_LEVEL_SECS = 2.5
+RESPAWN_CAP_SECS = 60
+DRAGON_FIRST_SPAWN = 300
+DRAGON_RESPAWN_DELAY = 300
+BARON_FIRST_SPAWN = 1200
+BARON_RESPAWN_DELAY = 360
+HERALD_FIRST_SPAWN = 480
+HERALD_SECOND_SPAWN = 840
+OBJECTIVE_GOLD: dict[str, int] = {"Dragon": 350, "Baron": 900, "Rift Herald": 400}
+
 
 # --- Position helpers ---
 
@@ -335,6 +355,75 @@ def _check_low_vision(
         counterfactual="",
         gold_impact=0,
     )
+
+
+def _in_fountain(position: dict, participant_id: int) -> bool:
+    fx, fy = FOUNTAIN_BLUE if participant_id in TEAM_100_IDS else FOUNTAIN_RED
+    px, py = position.get("x", 0), position.get("y", 0)
+    return math.sqrt((px - fx) ** 2 + (py - fy) ** 2) < FOUNTAIN_RADIUS
+
+
+def _collect_backs(frames: list, participant_id: int) -> list[dict]:
+    """Return list of {timestamp_secs, gold} for each detected voluntary recall."""
+    # Collect death windows for exclusion
+    death_windows: list[tuple[float, float]] = []
+    for frame in frames:
+        pf = frame.get("participantFrames", {}).get(str(participant_id), {})
+        level = pf.get("level", 1)
+        for event in frame.get("events", []):
+            if (event.get("type") == "CHAMPION_KILL"
+                    and event.get("victimId") == participant_id):
+                ts = event["timestamp"] / 1000
+                respawn = min(
+                    RESPAWN_BASE_SECS + level * RESPAWN_PER_LEVEL_SECS,
+                    RESPAWN_CAP_SECS,
+                )
+                death_windows.append((ts, ts + respawn))
+
+    def _is_respawn(ts: float) -> bool:
+        return any(start <= ts <= end for start, end in death_windows)
+
+    # Collect all item purchase events (for deduplication)
+    all_purchase_events: list[dict] = []
+    purchase_backs: list[dict] = []
+    position_backs: list[dict] = []
+    prev_pf: dict | None = None
+
+    for frame in frames:
+        curr_pf = frame.get("participantFrames", {}).get(str(participant_id), {})
+
+        for event in frame.get("events", []):
+            if (event.get("type") == "ITEM_PURCHASED"
+                    and event.get("participantId") == participant_id):
+                ts = event["timestamp"] / 1000
+                all_purchase_events.append({"timestamp_secs": ts})
+                if not _is_respawn(ts):
+                    gold = (prev_pf or {}).get("currentGold", 0)
+                    purchase_backs.append({"timestamp_secs": ts, "gold": gold})
+
+        if prev_pf is not None:
+            prev_pos = prev_pf.get("position", {"x": 0, "y": 0})
+            curr_pos = curr_pf.get("position", {"x": 0, "y": 0})
+            frame_ts = frame["timestamp"] / 1000
+            if (not _in_fountain(prev_pos, participant_id)
+                    and _in_fountain(curr_pos, participant_id)
+                    and not _is_respawn(frame_ts)):
+                gold = prev_pf.get("currentGold", 0)
+                position_backs.append({"timestamp_secs": frame_ts, "gold": gold})
+
+        prev_pf = curr_pf
+
+    # Merge: keep purchase backs, add position backs not covered by a purchase event
+    all_backs = list(purchase_backs)
+    for pb in position_backs:
+        if not any(
+            abs(pb["timestamp_secs"] - ex["timestamp_secs"]) <= BACK_DEDUP_WINDOW_SECS
+            for ex in all_purchase_events
+        ):
+            all_backs.append(pb)
+
+    all_backs.sort(key=lambda b: b["timestamp_secs"])
+    return all_backs
 
 
 def _detect_enemy_roam_kill(
