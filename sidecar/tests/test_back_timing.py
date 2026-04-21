@@ -153,7 +153,8 @@ def test_herald_second_spawn_still_flagged_after_first_killed():
 
 def test_dragon_second_kill_no_stale_respawn():
     # Dragon killed at 310s (respawn 610s), then killed again at 630s (respawn 930s)
-    # Player backs at 560s — 50s before 610s respawn that was already killed → must NOT be flagged
+    # Player backs at 560s — 50s before 610s respawn that will be killed at 630s → must NOT be flagged
+    # (_compute_objective_spawn_times has global visibility of all kills, including future ones)
     frames = [
         make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
         make_frame(310_000, [
@@ -167,6 +168,29 @@ def test_dragon_second_kill_no_stale_respawn():
         make_frame(630_000, [
             {"type": "ELITE_MONSTER_KILL", "timestamp": 630_000,
              "monsterType": "DRAGON", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    obj = [m for m in moments if m.moment_type == "bad_back_objective"]
+    assert len(obj) == 0
+
+
+def test_baron_second_kill_no_stale_respawn():
+    # Baron killed at 1210s (respawn 1570s), then killed again at 1590s (respawn 1950s)
+    # Player backs at 1510s — 60s before 1570s respawn that will be killed at 1590s → must NOT be flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(1210_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 1210_000,
+             "monsterType": "BARON_NASHOR", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(1510_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 1510_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+        make_frame(1590_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 1590_000,
+             "monsterType": "BARON_NASHOR", "killerId": 6},
         ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
     ]
     moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
