@@ -363,6 +363,15 @@ def _in_fountain(position: dict, participant_id: int) -> bool:
     return math.sqrt((px - fx) ** 2 + (py - fy) ** 2) < FOUNTAIN_RADIUS
 
 
+def _dedup_backs(backs: list[dict]) -> list[dict]:
+    """Keep only the earliest back within each BACK_DEDUP_WINDOW_SECS cluster."""
+    result: list[dict] = []
+    for b in sorted(backs, key=lambda x: x["timestamp_secs"]):
+        if not result or b["timestamp_secs"] - result[-1]["timestamp_secs"] > BACK_DEDUP_WINDOW_SECS:
+            result.append(b)
+    return result
+
+
 def _collect_backs(frames: list, participant_id: int) -> list[dict]:
     """Return list of {timestamp_secs, gold} for each detected voluntary recall."""
     # Collect death windows for exclusion
@@ -375,7 +384,7 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
                     and event.get("victimId") == participant_id):
                 ts = event["timestamp"] / 1000
                 respawn = min(
-                    RESPAWN_BASE_SECS + level * RESPAWN_PER_LEVEL_SECS,
+                    RESPAWN_BASE_SECS + (level - 1) * RESPAWN_PER_LEVEL_SECS,
                     RESPAWN_CAP_SECS,
                 )
                 death_windows.append((ts, ts + respawn))
@@ -410,6 +419,9 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
                 position_backs.append({"timestamp_secs": frame_ts, "gold": gold})
 
         prev_pf = curr_pf
+
+    # Dedup within purchase_backs (multiple items in one fountain visit)
+    purchase_backs = _dedup_backs(purchase_backs)
 
     # Merge: keep purchase backs, add position backs not covered by a purchase back
     all_backs = list(purchase_backs)
@@ -455,7 +467,7 @@ def _compute_objective_spawn_times(frames: list) -> list[tuple[int, str]]:
 def _detect_bad_backs(
     frames: list,
     participant_id: int,
-    role: str,
+    role: str,  # reserved for future role-specific thresholds
 ) -> list[PivotalMomentData]:
     moments: list[PivotalMomentData] = []
     backs = _collect_backs(frames, participant_id)
@@ -464,6 +476,9 @@ def _detect_bad_backs(
     for back in backs:
         ts = back["timestamp_secs"]
         gold = back["gold"]
+
+        if ts < 60:  # ignore game-start starter item purchases
+            continue
 
         # Signal 1: back within objective spawn window
         for spawn_secs, obj_name in spawn_times:

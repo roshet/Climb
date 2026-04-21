@@ -270,3 +270,18 @@ def test_back_triggers_both_signals():
     assert len(moments) == 2  # one bad_back_objective, one bad_back_gold — signals are independent
     assert any(m.moment_type == "bad_back_objective" for m in moments)
     assert any(m.moment_type == "bad_back_gold" for m in moments)
+
+
+def test_multiple_items_same_back_deduped():
+    # Two items purchased 1s apart during same fountain visit → one back, not two
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 1000}),
+        make_frame(300_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 1036, "timestamp": 300_000},
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 2003, "timestamp": 301_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 200}),
+    ]
+    backs = _collect_backs(frames, participant_id=PLAYER)
+    assert len(backs) == 1
