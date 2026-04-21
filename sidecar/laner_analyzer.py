@@ -517,6 +517,8 @@ def _detect_bad_backs(
                         "bit longer to reach a more meaningful purchase threshold "
                         "would have been more efficient."
                     ),
+                    # gold_impact targets the same 900g ceiling for both tiers —
+                    # how far short of a meaningful first component they were.
                     gold_impact=GOLD_COMPONENT_BASELINE - gold,
                 ))
 

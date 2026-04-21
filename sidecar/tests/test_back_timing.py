@@ -267,5 +267,6 @@ def test_back_triggers_both_signals():
         ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 200}),
     ]
     moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    assert len(moments) == 2  # one bad_back_objective, one bad_back_gold — signals are independent
     assert any(m.moment_type == "bad_back_objective" for m in moments)
     assert any(m.moment_type == "bad_back_gold" for m in moments)
