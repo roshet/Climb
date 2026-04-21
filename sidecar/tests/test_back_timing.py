@@ -1,4 +1,4 @@
-from laner_analyzer import _collect_backs
+from laner_analyzer import _collect_backs, _detect_bad_backs
 
 
 def make_frame(
@@ -75,3 +75,37 @@ def test_position_back_after_death_window_purchase():
     backs = _collect_backs(frames, participant_id=PLAYER)
     assert len(backs) == 1
     assert backs[0]["timestamp_secs"] == 90.0
+
+
+def test_objective_window_back():
+    # Back at 4:00 (240s), dragon first spawns at 5:00 (300s) → 60s before → flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(240_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 240_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    obj = [m for m in moments if m.moment_type == "bad_back_objective"]
+    assert len(obj) == 1
+    assert "Dragon" in obj[0].description
+
+
+def test_back_after_objective_safe():
+    # Dragon killed at 5:00 (300s) → respawns at 10:00 (600s)
+    # Player backs at 6:00 (360s) → 240s before next dragon → not flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(300_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 300_000,
+             "monsterType": "DRAGON", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(360_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 360_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    obj = [m for m in moments if m.moment_type == "bad_back_objective"]
+    assert len(obj) == 0

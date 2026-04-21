@@ -424,6 +424,66 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
     return all_backs
 
 
+def _compute_objective_spawn_times(frames: list) -> list[tuple[int, str]]:
+    """Return sorted list of (spawn_timestamp_secs, objective_name) for the whole game."""
+    spawns: set[tuple[int, str]] = {
+        (DRAGON_FIRST_SPAWN, "Dragon"),
+        (BARON_FIRST_SPAWN, "Baron"),
+        (HERALD_FIRST_SPAWN, "Rift Herald"),
+        (HERALD_SECOND_SPAWN, "Rift Herald"),
+    }
+    for frame in frames:
+        for event in frame.get("events", []):
+            if event.get("type") != "ELITE_MONSTER_KILL":
+                continue
+            monster = event.get("monsterType", "")
+            ts = event["timestamp"] // 1000
+            if monster == "DRAGON":
+                spawns.add((ts + DRAGON_RESPAWN_DELAY, "Dragon"))
+            elif monster == "BARON_NASHOR":
+                spawns.add((ts + BARON_RESPAWN_DELAY, "Baron"))
+    return sorted(spawns)
+
+
+def _detect_bad_backs(
+    frames: list,
+    participant_id: int,
+    role: str,
+) -> list[PivotalMomentData]:
+    moments: list[PivotalMomentData] = []
+    backs = _collect_backs(frames, participant_id)
+    spawn_times = _compute_objective_spawn_times(frames)
+
+    for back in backs:
+        ts = back["timestamp_secs"]
+        gold = back["gold"]
+
+        # Signal 1: back within objective spawn window
+        for spawn_secs, obj_name in spawn_times:
+            gap = spawn_secs - ts
+            if 0 < gap <= OBJECTIVE_DANGER_WINDOW_SECS:
+                spawn_mins, spawn_secs_rem = divmod(spawn_secs, 60)
+                moments.append(PivotalMomentData(
+                    timestamp_secs=int(ts),
+                    moment_type="bad_back_objective",
+                    description=(
+                        f"You recalled {int(gap)}s before {obj_name} spawned "
+                        f"at {spawn_mins}:{spawn_secs_rem:02d}."
+                    ),
+                    counterfactual=(
+                        "If you were healthy when you recalled, staying to contest "
+                        "or waiting until after the spawn would have kept your team "
+                        "at full strength for the objective."
+                    ),
+                    gold_impact=OBJECTIVE_GOLD.get(obj_name, 350),
+                ))
+                break  # one flag per back
+
+        # Signal 2: low gold back — added in Task 3
+
+    return moments
+
+
 def _detect_enemy_roam_kill(
     event: dict,
     participant_id: int,
