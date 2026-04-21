@@ -254,3 +254,18 @@ def test_high_gold_not_flagged():
     moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
     gold_m = [m for m in moments if m.moment_type == "bad_back_gold"]
     assert len(gold_m) == 0
+
+
+def test_back_triggers_both_signals():
+    # Back at 4:00 (240s) with 200g — 60s before Dragon (300s) AND low gold
+    # Both bad_back_objective and bad_back_gold should be produced
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 200}),
+        make_frame(240_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 2003, "timestamp": 240_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 200}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    assert any(m.moment_type == "bad_back_objective" for m in moments)
+    assert any(m.moment_type == "bad_back_gold" for m in moments)

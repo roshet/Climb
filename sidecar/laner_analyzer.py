@@ -28,7 +28,7 @@ FOUNTAIN_BLUE = (523, 523)
 FOUNTAIN_RED = (14340, 14390)
 FOUNTAIN_RADIUS = 1500
 OBJECTIVE_DANGER_WINDOW_SECS = 90
-LATE_GAME_CUTOFF_SECS = 1200
+GOLD_COMPONENT_BASELINE = 900
 BACK_DEDUP_WINDOW_SECS = 60
 GOLD_WASTE_THRESHOLD = 300
 GOLD_MINOR_THRESHOLD = 500
@@ -487,7 +487,7 @@ def _detect_bad_backs(
                 break  # one flag per back
 
         # Signal 2: low gold back (before 20:00 only)
-        if ts < LATE_GAME_CUTOFF_SECS:
+        if ts < POST_LANING_SECS:
             mins, secs_rem = divmod(int(ts), 60)
             if gold < GOLD_WASTE_THRESHOLD:
                 moments.append(PivotalMomentData(
@@ -502,7 +502,7 @@ def _detect_bad_backs(
                         "accumulate gold for a meaningful purchase would have been "
                         "more efficient."
                     ),
-                    gold_impact=900 - gold,
+                    gold_impact=GOLD_COMPONENT_BASELINE - gold,
                 ))
             elif gold < GOLD_MINOR_THRESHOLD:
                 moments.append(PivotalMomentData(
@@ -517,7 +517,7 @@ def _detect_bad_backs(
                         "bit longer to reach a more meaningful purchase threshold "
                         "would have been more efficient."
                     ),
-                    gold_impact=900 - gold,
+                    gold_impact=GOLD_COMPONENT_BASELINE - gold,
                 ))
 
     return moments
