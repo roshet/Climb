@@ -383,8 +383,7 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
     def _is_respawn(ts: float) -> bool:
         return any(start <= ts <= end for start, end in death_windows)
 
-    # Collect all item purchase events (for deduplication)
-    all_purchase_events: list[dict] = []
+    # Collect item purchase backs and position backs
     purchase_backs: list[dict] = []
     position_backs: list[dict] = []
     prev_pf: dict | None = None
@@ -396,7 +395,6 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
             if (event.get("type") == "ITEM_PURCHASED"
                     and event.get("participantId") == participant_id):
                 ts = event["timestamp"] / 1000
-                all_purchase_events.append({"timestamp_secs": ts})
                 if not _is_respawn(ts):
                     gold = (prev_pf or {}).get("currentGold", 0)
                     purchase_backs.append({"timestamp_secs": ts, "gold": gold})
@@ -413,12 +411,12 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
 
         prev_pf = curr_pf
 
-    # Merge: keep purchase backs, add position backs not covered by a purchase event
+    # Merge: keep purchase backs, add position backs not covered by a purchase back
     all_backs = list(purchase_backs)
     for pb in position_backs:
         if not any(
             abs(pb["timestamp_secs"] - ex["timestamp_secs"]) <= BACK_DEDUP_WINDOW_SECS
-            for ex in all_purchase_events
+            for ex in purchase_backs
         ):
             all_backs.append(pb)
 

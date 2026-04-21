@@ -1,4 +1,3 @@
-import pytest
 from laner_analyzer import _collect_backs
 
 
@@ -48,7 +47,29 @@ def test_back_excluded_after_death():
         make_frame(60_000, [
             {"type": "ITEM_PURCHASED", "participantId": PLAYER,
              "itemId": 1001, "timestamp": 15_000},
-        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 100}),
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 100}),
     ]
     backs = _collect_backs(frames, participant_id=PLAYER)
     assert len(backs) == 0
+
+
+def test_position_back_after_death_window_purchase():
+    # Bug scenario: death at 5s, purchase during respawn window at 15s (excluded),
+    # then position jump to fountain at 60s (real voluntary recall, should be included)
+    # Player: blue side (team 100), fountain at (523, 523)
+    # Level 5: respawn = 8 + 5*2.5 = 20.5s → excluded until 25.5s
+    frames = [
+        make_frame(0, [
+            {"type": "CHAMPION_KILL", "timestamp": 5_000,
+             "victimId": PLAYER, "killerId": 6, "assistingParticipantIds": []},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 400}, levels={PLAYER: 5}),
+        make_frame(15_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 1001, "timestamp": 15_000},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 350}, levels={PLAYER: 5}),
+        make_frame(60_000, [
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 100}, levels={PLAYER: 5}),
+    ]
+    backs = _collect_backs(frames, participant_id=PLAYER)
+    assert len(backs) == 1
+    assert backs[0]["timestamp_secs"] == 60.0
