@@ -129,3 +129,46 @@ def test_back_safe_when_dragon_killed_off_spawn_time():
     moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
     obj = [m for m in moments if m.moment_type == "bad_back_objective"]
     assert len(obj) == 0
+
+
+def test_herald_second_spawn_still_flagged_after_first_killed():
+    # First Herald killed at 490s, second Herald spawns at 840s
+    # Player backs at 760s (80s before 840s) → should be flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(490_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 490_000,
+             "monsterType": "RIFT_HERALD", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(760_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 760_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    obj = [m for m in moments if m.moment_type == "bad_back_objective"]
+    assert len(obj) == 1
+    assert "Rift Herald" in obj[0].description
+
+
+def test_dragon_second_kill_no_stale_respawn():
+    # Dragon killed at 310s (respawn 610s), then killed again at 630s (respawn 930s)
+    # Player backs at 560s — 50s before 610s respawn that was already killed → must NOT be flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(310_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 310_000,
+             "monsterType": "DRAGON", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(560_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 560_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+        make_frame(630_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 630_000,
+             "monsterType": "DRAGON", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    obj = [m for m in moments if m.moment_type == "bad_back_objective"]
+    assert len(obj) == 0

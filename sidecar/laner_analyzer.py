@@ -439,15 +439,16 @@ def _compute_objective_spawn_times(frames: list) -> list[tuple[int, str]]:
             monster = event.get("monsterType", "")
             ts = event["timestamp"] // 1000
             if monster == "DRAGON":
-                spawns.discard((DRAGON_FIRST_SPAWN, "Dragon"))
+                spawns = {s for s in spawns if s[1] != "Dragon"}
                 spawns.add((ts + DRAGON_RESPAWN_DELAY, "Dragon"))
             elif monster == "BARON_NASHOR":
-                spawns.discard((BARON_FIRST_SPAWN, "Baron"))
+                spawns = {s for s in spawns if s[1] != "Baron"}
                 spawns.add((ts + BARON_RESPAWN_DELAY, "Baron"))
             elif monster == "RIFT_HERALD":
-                # Herald doesn't respawn; remove whichever seed hasn't been taken yet
-                spawns.discard((HERALD_FIRST_SPAWN, "Rift Herald"))
-                spawns.discard((HERALD_SECOND_SPAWN, "Rift Herald"))
+                # Discard only the spawn that just occurred; the later one may still be pending
+                for herald_seed in (HERALD_FIRST_SPAWN, HERALD_SECOND_SPAWN):
+                    if herald_seed <= ts:
+                        spawns.discard((herald_seed, "Rift Herald"))
     return sorted(spawns)
 
 
