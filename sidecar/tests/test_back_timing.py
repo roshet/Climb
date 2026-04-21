@@ -285,3 +285,27 @@ def test_multiple_items_same_back_deduped():
     ]
     backs = _collect_backs(frames, participant_id=PLAYER)
     assert len(backs) == 1
+
+
+def test_game_start_back_not_flagged():
+    # Starter item bought at t=30s (game start) → ts < 60 guard → no moments
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 0}),
+        make_frame(30_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 1054, "timestamp": 30_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 0}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    assert len(moments) == 0
+
+
+def test_position_backs_deduped():
+    # Player stays near fountain across two consecutive frames → one back, not two
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(60_000, [], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+        make_frame(120_000, [], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+    ]
+    backs = _collect_backs(frames, participant_id=PLAYER)
+    assert len(backs) == 1

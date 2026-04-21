@@ -364,7 +364,7 @@ def _in_fountain(position: dict, participant_id: int) -> bool:
 
 
 def _dedup_backs(backs: list[dict]) -> list[dict]:
-    """Keep only the earliest back within each BACK_DEDUP_WINDOW_SECS cluster."""
+    """Keep only the first back in any run where each back is within BACK_DEDUP_WINDOW_SECS of the previous kept back."""
     result: list[dict] = []
     for b in sorted(backs, key=lambda x: x["timestamp_secs"]):
         if not result or b["timestamp_secs"] - result[-1]["timestamp_secs"] > BACK_DEDUP_WINDOW_SECS:
@@ -422,6 +422,8 @@ def _collect_backs(frames: list, participant_id: int) -> list[dict]:
 
     # Dedup within purchase_backs (multiple items in one fountain visit)
     purchase_backs = _dedup_backs(purchase_backs)
+    # Dedup within position_backs (multiple frames in fountain in consecutive frames)
+    position_backs = _dedup_backs(position_backs)
 
     # Merge: keep purchase backs, add position backs not covered by a purchase back
     all_backs = list(purchase_backs)
