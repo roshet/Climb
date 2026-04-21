@@ -486,7 +486,39 @@ def _detect_bad_backs(
                 ))
                 break  # one flag per back
 
-        # Signal 2: low gold back — added in Task 3
+        # Signal 2: low gold back (before 20:00 only)
+        if ts < LATE_GAME_CUTOFF_SECS:
+            mins, secs_rem = divmod(int(ts), 60)
+            if gold < GOLD_WASTE_THRESHOLD:
+                moments.append(PivotalMomentData(
+                    timestamp_secs=int(ts),
+                    moment_type="bad_back_gold",
+                    description=(
+                        f"You recalled with only {gold}g at {mins}:{secs_rem:02d} "
+                        f"— not enough to buy any component."
+                    ),
+                    counterfactual=(
+                        "If you were healthy when you recalled, staying in lane to "
+                        "accumulate gold for a meaningful purchase would have been "
+                        "more efficient."
+                    ),
+                    gold_impact=900 - gold,
+                ))
+            elif gold < GOLD_MINOR_THRESHOLD:
+                moments.append(PivotalMomentData(
+                    timestamp_secs=int(ts),
+                    moment_type="bad_back_gold",
+                    description=(
+                        f"You recalled with only {gold}g at {mins}:{secs_rem:02d} "
+                        f"— enough for only a minor component."
+                    ),
+                    counterfactual=(
+                        "If you were healthy when you recalled, staying in lane a "
+                        "bit longer to reach a more meaningful purchase threshold "
+                        "would have been more efficient."
+                    ),
+                    gold_impact=900 - gold,
+                ))
 
     return moments
 
@@ -601,6 +633,10 @@ def analyze_laner(
         gold_moment = _gold_differential_at_14(frames, participant_id, lane_opponent_id)
         if gold_moment:
             moments.append(gold_moment)
+
+    # Back timing analysis (all laner roles)
+    back_moments = _detect_bad_backs(frames, participant_id, role)
+    moments.extend(back_moments)
 
     moments.sort(key=lambda m: m.timestamp_secs)
     return moments

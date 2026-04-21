@@ -196,3 +196,61 @@ def test_baron_second_kill_no_stale_respawn():
     moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
     obj = [m for m in moments if m.moment_type == "bad_back_objective"]
     assert len(obj) == 0
+
+
+def test_low_gold_back_under_300():
+    # Back at 3:00 with 250g → waste tier flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 250}),
+        make_frame(180_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 2003, "timestamp": 180_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 50}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    gold_m = [m for m in moments if m.moment_type == "bad_back_gold"]
+    assert len(gold_m) == 1
+    assert "not enough" in gold_m[0].description.lower()
+
+
+def test_low_gold_back_300_to_500():
+    # Back at 3:00 with 400g → minor tier flagged
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 400}),
+        make_frame(180_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 1036, "timestamp": 180_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 50}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    gold_m = [m for m in moments if m.moment_type == "bad_back_gold"]
+    assert len(gold_m) == 1
+    assert "minor component" in gold_m[0].description.lower()
+
+
+def test_gold_back_after_20min():
+    # Back at 21:00 with 200g → not flagged (late game cutoff)
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 200}),
+        make_frame(1260_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 2003, "timestamp": 1260_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 50}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    gold_m = [m for m in moments if m.moment_type == "bad_back_gold"]
+    assert len(gold_m) == 0
+
+
+def test_high_gold_not_flagged():
+    # Back at 3:00 with 1000g → not flagged for gold
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 1000}),
+        make_frame(180_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 180_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 150}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    gold_m = [m for m in moments if m.moment_type == "bad_back_gold"]
+    assert len(gold_m) == 0
