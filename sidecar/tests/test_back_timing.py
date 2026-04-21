@@ -109,3 +109,23 @@ def test_back_after_objective_safe():
     moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
     obj = [m for m in moments if m.moment_type == "bad_back_objective"]
     assert len(obj) == 0
+
+
+def test_back_safe_when_dragon_killed_off_spawn_time():
+    # Dragon killed at 5:10 (310s, not exact spawn time) → respawns at 10:10 (610s)
+    # Player backs at 4:40 (280s) → gap to ghost first-spawn (300s) = 20s → must NOT be flagged
+    # (dragon already killed; the 300s seed should be evicted)
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+        make_frame(280_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 3006, "timestamp": 280_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 800}),
+        make_frame(310_000, [
+            {"type": "ELITE_MONSTER_KILL", "timestamp": 310_000,
+             "monsterType": "DRAGON", "killerId": 6},
+        ], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 800}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    obj = [m for m in moments if m.moment_type == "bad_back_objective"]
+    assert len(obj) == 0

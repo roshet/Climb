@@ -439,9 +439,15 @@ def _compute_objective_spawn_times(frames: list) -> list[tuple[int, str]]:
             monster = event.get("monsterType", "")
             ts = event["timestamp"] // 1000
             if monster == "DRAGON":
+                spawns.discard((DRAGON_FIRST_SPAWN, "Dragon"))
                 spawns.add((ts + DRAGON_RESPAWN_DELAY, "Dragon"))
             elif monster == "BARON_NASHOR":
+                spawns.discard((BARON_FIRST_SPAWN, "Baron"))
                 spawns.add((ts + BARON_RESPAWN_DELAY, "Baron"))
+            elif monster == "RIFT_HERALD":
+                # Herald doesn't respawn; remove whichever seed hasn't been taken yet
+                spawns.discard((HERALD_FIRST_SPAWN, "Rift Herald"))
+                spawns.discard((HERALD_SECOND_SPAWN, "Rift Herald"))
     return sorted(spawns)
 
 
@@ -467,7 +473,7 @@ def _detect_bad_backs(
                     timestamp_secs=int(ts),
                     moment_type="bad_back_objective",
                     description=(
-                        f"You recalled {int(gap)}s before {obj_name} spawned "
+                        f"You recalled {int(gap)}s before {obj_name} was due to spawn "
                         f"at {spawn_mins}:{spawn_secs_rem:02d}."
                     ),
                     counterfactual=(
