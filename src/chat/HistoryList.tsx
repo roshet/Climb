@@ -32,18 +32,33 @@ interface HistoryListProps {
 export function HistoryList({ port, onSelect }: HistoryListProps) {
   const [matches, setMatches] = useState<MatchRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     fetch(`http://localhost:${port}/matches?last_n=20`)
-      .then(r => r.ok ? r.json() : [])
-      .then((data: MatchRow[]) => { setMatches(data); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(r => {
+        if (!r.ok) { setError(true); setLoading(false); return }
+        r.json().then((data: unknown) => {
+          if (Array.isArray(data)) setMatches(data as MatchRow[])
+          else setError(true)
+          setLoading(false)
+        }).catch(() => { setError(true); setLoading(false) })
+      })
+      .catch(() => { setError(true); setLoading(false) })
   }, [port])
 
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <p className="text-gray-500 text-sm">Loading games...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-red-400 text-sm">Could not load match history.</p>
       </div>
     )
   }
