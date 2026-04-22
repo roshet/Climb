@@ -113,6 +113,8 @@ function ChatApp() {
     if (newTab === 'history') setSelectedMatchId(null)
   }, [])
 
+  const handleBack = useCallback(() => setSelectedMatchId(null), [])
+
   if (isSetup === null) {
     return (
       <div className="bg-[#1a1a2e] h-screen flex items-center justify-center">
@@ -156,7 +158,7 @@ function ChatApp() {
         <GameDetail
           matchId={selectedMatchId}
           port={port}
-          onBack={() => setSelectedMatchId(null)}
+          onBack={handleBack}
           onAskAboutGame={handleAskAboutGame}
         />
       )}
