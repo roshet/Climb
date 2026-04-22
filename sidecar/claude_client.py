@@ -218,6 +218,8 @@ class ClaudeClient:
         return "Unknown tool."
 
     def chat(self, summoner_name: str, messages: list[dict], match_context: str | None = None) -> str:
+        from google.genai import errors as genai_errors
+
         system = build_system_prompt(summoner_name)
         if match_context:
             system += f"\n\nCurrent game context:\n{match_context}"
@@ -234,37 +236,46 @@ class ClaudeClient:
             role = "model" if msg["role"] == "assistant" else "user"
             history.append(types.Content(role=role, parts=[types.Part(text=msg["content"])]))
 
-        chat_session = self.client.chats.create(
-            model=self.model_name,
-            config=config,
-            history=history,
-        )
-        response = chat_session.send_message(messages[-1]["content"])
+        try:
+            chat_session = self.client.chats.create(
+                model=self.model_name,
+                config=config,
+                history=history,
+            )
+            response = chat_session.send_message(messages[-1]["content"])
 
-        # Tool use loop — keep going until no function calls remain
-        while True:
-            function_calls = [
-                part for part in response.candidates[0].content.parts
-                if part.function_call is not None
-            ]
-            if not function_calls:
-                break
+            # Tool use loop — keep going until no function calls remain
+            while True:
+                function_calls = [
+                    part for part in response.candidates[0].content.parts
+                    if part.function_call is not None
+                ]
+                if not function_calls:
+                    break
 
-            tool_response_parts = []
-            for part in function_calls:
-                fn = part.function_call
-                result = self._handle_tool(fn.name, dict(fn.args))
-                tool_response_parts.append(
-                    types.Part(
-                        function_response=types.FunctionResponse(
-                            name=fn.name,
-                            response={"result": result},
+                tool_response_parts = []
+                for part in function_calls:
+                    fn = part.function_call
+                    result = self._handle_tool(fn.name, dict(fn.args))
+                    tool_response_parts.append(
+                        types.Part(
+                            function_response=types.FunctionResponse(
+                                name=fn.name,
+                                response={"result": result},
+                            )
                         )
                     )
-                )
-            response = chat_session.send_message(tool_response_parts)
+                response = chat_session.send_message(tool_response_parts)
 
-        return response.text
+            return response.text
+        except genai_errors.ClientError as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                print(f"[chat] Gemini quota exceeded: {e}")
+                return (
+                    "I've hit my daily AI quota — the free tier allows 20 requests per day. "
+                    "Try again tomorrow, or add a paid Gemini API key to your .env file."
+                )
+            raise
 
     def generate_coaching_notes(
         self,
