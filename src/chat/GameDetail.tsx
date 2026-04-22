@@ -36,6 +36,7 @@ function formatDuration(secs: number): string {
 export function GameDetail({ matchId, port, onBack, onAskAboutGame }: GameDetailProps) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
 
   useEffect(() => {
@@ -43,12 +44,17 @@ export function GameDetail({ matchId, port, onBack, onAskAboutGame }: GameDetail
     setLoading(true)
     setFilter('all')
     setAnalysis(null)
+    setError(false)
     const controller = new AbortController()
     fetch(`http://localhost:${port}/analysis/${matchId}`, { signal: controller.signal })
-      .then(r => r.ok ? r.json() : null)
-      .then((data: Analysis | null) => { setAnalysis(data); setLoading(false) })
+      .then(r => {
+        if (!r.ok) { setError(true); setLoading(false); return }
+        r.json().then((data: Analysis) => { setAnalysis(data); setLoading(false) })
+          .catch(() => { setError(true); setLoading(false) })
+      })
       .catch(err => {
         if (err.name === 'AbortError') return
+        setError(true)
         setLoading(false)
       })
     return () => controller.abort()
@@ -62,7 +68,7 @@ export function GameDetail({ matchId, port, onBack, onAskAboutGame }: GameDetail
     )
   }
 
-  if (!analysis) {
+  if (error || !analysis) {
     return (
       <div className="flex-1 flex items-center justify-center flex-col gap-2">
         <p className="text-red-400 text-sm">Could not load analysis.</p>
