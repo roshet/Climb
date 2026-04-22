@@ -42,6 +42,8 @@ const MOMENT_LABELS: Record<string, string> = {
   roam_kill: 'Roam Kills',
   roam_assist: 'Roam Assists',
   ward_kill: 'Vision Control',
+  bad_back_objective: 'Bad Backs (Objective)',
+  bad_back_gold: 'Bad Backs (Low Gold)',
 }
 
 function ChatApp() {

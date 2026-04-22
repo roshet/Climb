@@ -300,6 +300,21 @@ def test_game_start_back_not_flagged():
     assert len(moments) == 0
 
 
+def test_early_back_gold_not_flagged():
+    # Back at 1:52 (112s) with 0g from prev frame (stale starter-purchase snapshot)
+    # Gold signal must be suppressed for ts < 180s even if gold appears to be 0
+    frames = [
+        make_frame(0, [], positions={PLAYER: (3000, 12000)}, current_gold={PLAYER: 0}),
+        make_frame(112_000, [
+            {"type": "ITEM_PURCHASED", "participantId": PLAYER,
+             "itemId": 2003, "timestamp": 112_000},
+        ], positions={PLAYER: (523, 523)}, current_gold={PLAYER: 0}),
+    ]
+    moments = _detect_bad_backs(frames, participant_id=PLAYER, role="TOP")
+    gold_m = [m for m in moments if m.moment_type == "bad_back_gold"]
+    assert len(gold_m) == 0
+
+
 def test_position_backs_deduped():
     # Player stays near fountain across two consecutive frames → one back, not two
     frames = [

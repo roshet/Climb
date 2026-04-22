@@ -503,8 +503,8 @@ def _detect_bad_backs(
                 ))
                 break  # one flag per back
 
-        # Signal 2: low gold back (before 20:00 only)
-        if ts < POST_LANING_SECS:
+        # Signal 2: low gold back (3:00–20:00 only; before 3:00 frame gold is unreliable)
+        if 180 <= ts < POST_LANING_SECS:
             mins, secs_rem = divmod(int(ts), 60)
             if gold < GOLD_WASTE_THRESHOLD:
                 moments.append(PivotalMomentData(
