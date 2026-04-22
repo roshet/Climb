@@ -39,12 +39,19 @@ export function GameDetail({ matchId, port, onBack, onAskAboutGame }: GameDetail
   const [filter, setFilter] = useState<Filter>('all')
 
   useEffect(() => {
+    if (!port) return
     setLoading(true)
     setFilter('all')
-    fetch(`http://localhost:${port}/analysis/${matchId}`)
+    setAnalysis(null)
+    const controller = new AbortController()
+    fetch(`http://localhost:${port}/analysis/${matchId}`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then((data: Analysis | null) => { setAnalysis(data); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch(err => {
+        if (err.name === 'AbortError') return
+        setLoading(false)
+      })
+    return () => controller.abort()
   }, [matchId, port])
 
   if (loading) {
