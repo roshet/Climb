@@ -281,14 +281,22 @@ def open_chat_signal(req: OpenChatRequest):
 @app.get("/matches")
 def list_matches(champion: Optional[str] = None, result: Optional[str] = None, last_n: int = 20):
     matches = get_matches(db, champion=champion, result=result, last_n=last_n)
+    match_ids = [m.match_id for m in matches]
+    all_moments = get_pivotal_moments(db, match_ids) if match_ids else []
+    moment_counts: dict[str, int] = {}
+    for moment in all_moments:
+        moment_counts[moment.match_id] = moment_counts.get(moment.match_id, 0) + 1
     return [
         {
             "match_id": m.match_id,
             "champion": m.champion,
+            "role": m.role,
             "result": m.result,
             "kda": m.kda,
             "cs": m.cs,
+            "duration_secs": m.duration_secs,
             "played_at": m.played_at.isoformat(),
+            "moment_count": moment_counts.get(m.match_id, 0),
         }
         for m in matches
     ]
