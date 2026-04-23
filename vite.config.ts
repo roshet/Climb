@@ -16,6 +16,7 @@ export default defineConfig({
         popup: path.resolve(__dirname, 'src/popup/index.html'),
         setup: path.resolve(__dirname, 'src/setup/index.html'),
         overlay: path.resolve(__dirname, 'src/overlay/index.html'),
+        'champ-select': path.resolve(__dirname, 'src/champ-select/index.html'),
       }
     }
   },
