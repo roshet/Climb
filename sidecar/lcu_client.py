@@ -1,8 +1,12 @@
+import logging
 from pathlib import Path
 from typing import Optional
 
 import httpx
 
+log = logging.getLogger(__name__)
+
+# Windows-only: LCU lockfile is written by the League client at one of these paths
 LOCKFILE_PATHS = [
     r"C:\Riot Games\League of Legends\lockfile",
     r"C:\Program Files\Riot Games\League of Legends\lockfile",
@@ -21,7 +25,7 @@ class LcuClient:
                 parts = text.strip().split(":")
                 if len(parts) >= 5:
                     return int(parts[2]), parts[3]
-            except (FileNotFoundError, PermissionError, ValueError):
+            except (OSError, ValueError):
                 continue
         return None
 
@@ -39,7 +43,8 @@ class LcuClient:
                 if resp.status_code != 200:
                     return None
                 return resp.json()
-            except Exception:
+            except Exception as exc:
+                log.debug("LCU request failed: %s", exc)
                 return None
 
     async def get_champion_name(self, champion_id: int) -> Optional[str]:
@@ -61,8 +66,10 @@ class LcuClient:
                     return None
                 for champ in resp.json():
                     cid = champ.get("id", -1)
-                    if cid > 0:
-                        self._champion_cache[cid] = champ["name"]
+                    name = champ.get("name")
+                    if cid > 0 and name:
+                        self._champion_cache[cid] = name
                 return self._champion_cache.get(champion_id)
-            except Exception:
+            except Exception as exc:
+                log.debug("LCU request failed: %s", exc)
                 return None
