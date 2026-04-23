@@ -17,6 +17,8 @@ let sidecarProcess: ChildProcess | null = null
 let statusPollInterval: ReturnType<typeof setInterval> | null = null
 let overlayWindow: BrowserWindow | null = null
 let _wasInGame = false
+let champSelectWindow: BrowserWindow | null = null
+let _wasInChampSelect = false
 
 // --- Config ---
 
@@ -209,6 +211,40 @@ function destroyOverlayWindow() {
   overlayWindow = null
 }
 
+function createChampSelectWindow() {
+  if (champSelectWindow) return
+  const { width } = screen.getPrimaryDisplay().workAreaSize
+  champSelectWindow = new BrowserWindow({
+    width: 320,
+    height: 260,
+    x: width - 340,
+    y: 20,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    focusable: false,
+    skipTaskbar: true,
+    resizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+    },
+  })
+  champSelectWindow.setAlwaysOnTop(true, 'screen-saver')
+  const url = isDev
+    ? 'http://localhost:5173/champ-select/index.html'
+    : `file://${path.join(__dirname, '../renderer/champ-select/index.html')}`
+  champSelectWindow.loadURL(url)
+  champSelectWindow.on('closed', () => { champSelectWindow = null })
+}
+
+function destroyChampSelectWindow() {
+  if (champSelectWindow && !champSelectWindow.isDestroyed()) {
+    champSelectWindow.close()
+  }
+  champSelectWindow = null
+}
+
 // --- Status Polling ---
 
 async function pollStatus() {
@@ -236,7 +272,22 @@ async function pollStatus() {
         } else if (!liveData.in_game && _wasInGame) {
           destroyOverlayWindow()
         }
-        _wasInGame = liveData.in_game  // always sync, regardless of transition
+        _wasInGame = liveData.in_game
+      }
+    }
+  } catch { /* sidecar not ready */ }
+
+  try {
+    const csRes = await fetch(`${SIDECAR_URL}/champ-select`)
+    if (csRes.ok) {
+      const csData = await csRes.json() as { in_champ_select: boolean }
+      if (typeof csData.in_champ_select === 'boolean') {
+        if (csData.in_champ_select && !_wasInChampSelect) {
+          createChampSelectWindow()
+        } else if (!csData.in_champ_select && _wasInChampSelect) {
+          destroyChampSelectWindow()
+        }
+        _wasInChampSelect = csData.in_champ_select
       }
     }
   } catch { /* sidecar not ready */ }
@@ -328,6 +379,8 @@ app.on('window-all-closed', (e: Event) => {
 app.on('before-quit', () => {
   if (statusPollInterval) clearInterval(statusPollInterval)
   _wasInGame = false
+  _wasInChampSelect = false
   destroyOverlayWindow()
+  destroyChampSelectWindow()
   stopSidecar()
 })
