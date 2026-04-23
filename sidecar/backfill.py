@@ -101,7 +101,7 @@ async def analyze_and_save_match(
 async def run_backfill(riot_client, db_session, claude_client, player) -> None:
     start_time = int(datetime.now(timezone.utc).timestamp() - BACKFILL_DAYS * 24 * 3600)
     match_ids = await riot_client.get_recent_match_ids(
-        player.riot_puuid, count=100, start_time=start_time
+        player.riot_puuid, count=20, start_time=start_time
     )
     existing_ids = get_all_match_ids(db_session)
     new_ids = [mid for mid in match_ids if mid not in existing_ids]
