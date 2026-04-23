@@ -21,6 +21,8 @@ from database import (
 )
 from riot_client import RiotClient, REGIONAL_ROUTING
 from live_game_monitor import LiveGameMonitor
+from champ_select_monitor import ChampSelectMonitor
+from lcu_client import LcuClient
 
 load_dotenv()
 
@@ -33,6 +35,8 @@ db = Session(engine)
 riot = RiotClient(api_key=RIOT_API_KEY, region=REGION)
 claude = ClaudeClient(api_key=GEMINI_API_KEY, db=db)
 live_monitor = LiveGameMonitor(db)
+lcu = LcuClient()
+champ_select_monitor = ChampSelectMonitor(db, lcu)
 
 _watcher_task: Optional[asyncio.Task] = None
 _backfill_running = False
@@ -93,6 +97,7 @@ async def lifespan(app: FastAPI):
     _watcher_task = asyncio.create_task(game_end_watcher())
     asyncio.create_task(backfill_history())
     live_monitor.start()
+    champ_select_monitor.start()
     yield
     if _watcher_task:
         _watcher_task.cancel()
@@ -101,6 +106,13 @@ async def lifespan(app: FastAPI):
     if monitor_task:
         try:
             await monitor_task
+        except asyncio.CancelledError:
+            pass
+    cs_task = champ_select_monitor._task
+    champ_select_monitor.stop()
+    if cs_task:
+        try:
+            await cs_task
         except asyncio.CancelledError:
             pass
     await riot.close()
@@ -153,6 +165,11 @@ def get_patterns():
 @app.get("/live")
 def get_live():
     return live_monitor.get_state()
+
+
+@app.get("/champ-select")
+def get_champ_select():
+    return champ_select_monitor.get_state()
 
 
 @app.get("/player")
