@@ -44,6 +44,7 @@ def test_lock_in_detected(monitor):
     assert monitor._in_champ_select is True
     assert monitor._locked_champion == "Graves"
     assert monitor._champ_data is not None
+    assert monitor._champ_data["no_history"] is True
 
 
 def test_no_lock_without_completed_action(monitor):

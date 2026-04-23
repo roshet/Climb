@@ -65,15 +65,18 @@ class ChampSelectMonitor:
 
     def _process_session(self, session: dict, champion_name: Optional[str]) -> None:
         local_cell = session.get("localPlayerCellId", -1)
+        if local_cell < 0:
+            self._in_champ_select = True
+            return
+        self._in_champ_select = True  # we have a session, we're in champ select
+
         my_team = session.get("myTeam", [])
         player_entry = next((p for p in my_team if p.get("cellId") == local_cell), None)
         if not player_entry:
-            self._in_champ_select = True
             return
 
         champion_id = player_entry.get("championId", 0)
         if champion_id == 0:
-            self._in_champ_select = True
             return
 
         actions_flat = [a for row in session.get("actions", []) for a in row]
@@ -85,15 +88,12 @@ class ChampSelectMonitor:
         )
 
         if locked and champion_name and self._locked_champion != champion_name:
-            self._in_champ_select = True
             self._locked_champion = champion_name
             try:
                 self._champ_data = self._build_champ_data(champion_name)
             except Exception as exc:
                 log.debug("Failed to build champ data: %s", exc)
                 self._champ_data = None
-        elif not locked:
-            self._in_champ_select = True
 
     def _build_champ_data(self, champion: str) -> dict:
         matches = get_matches(self._db, champion=champion, last_n=20)
@@ -110,8 +110,10 @@ class ChampSelectMonitor:
         negative_counts = Counter(
             m.moment_type for m in moments if m.moment_type not in POSITIVE_TYPES
         )
+        win_ids = {m.match_id for m in matches if m.result == "win"}
         positive_counts = Counter(
-            m.moment_type for m in moments if m.moment_type in POSITIVE_TYPES
+            m.moment_type for m in moments
+            if m.moment_type in POSITIVE_TYPES and m.match_id in win_ids
         )
 
         patterns = []
@@ -137,7 +139,7 @@ class ChampSelectMonitor:
             try:
                 await self._tick()
             except Exception as exc:
-                log.debug("ChampSelectMonitor tick failed: %s", exc)
+                log.warning("ChampSelectMonitor tick failed: %s", exc, exc_info=True)
             await asyncio.sleep(2)
 
     async def _tick(self) -> None:
@@ -156,7 +158,9 @@ class ChampSelectMonitor:
             champion_id = player_entry.get("championId", 0) if player_entry else 0
             champion_name: Optional[str] = None
             if champion_id > 0:
-                champion_name = await self._lcu.get_champion_name(champion_id) or "Unknown"
+                champion_name = await self._lcu.get_champion_name(champion_id)
+                if not champion_name:
+                    return  # transient LCU failure, retry next tick
         else:
             champion_name = self._locked_champion
 
