@@ -18,7 +18,7 @@ def get_improvement_data(db: Session, match_id: str) -> dict | None:
     matches = get_matches(db, champion=champion, last_n=20)  # newest first
 
     if len(matches) < 3:
-        return {"champion": champion, "patterns": []}
+        return {"champion": champion, "patterns": [], "window": 0}
 
     match_ids = [m.match_id for m in matches]
     moments = get_pivotal_moments(db, match_ids)
