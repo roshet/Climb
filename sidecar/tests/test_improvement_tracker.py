@@ -34,6 +34,11 @@ def test_returns_empty_when_insufficient_history(db):
     assert result["patterns"] == []
 
 
+def test_returns_none_when_match_not_found(db):
+    result = get_improvement_data(db, "nonexistent_id")
+    assert result is None
+
+
 def test_had_in_game_true_when_moment_present(db):
     for i in range(5):
         make_match(db, f"m{i}", day=i + 1, moment_types=["lane_death"])

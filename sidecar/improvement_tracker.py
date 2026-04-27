@@ -23,6 +23,10 @@ def get_improvement_data(db: Session, match_id: str) -> dict | None:
     match_ids = [m.match_id for m in matches]
     moments = get_pivotal_moments(db, match_ids)
 
+    # The current game is included in match_ids, so its moments count toward
+    # pattern frequency. This is intentional: the current game's events are real
+    # data points. recent_rate signals how chronic a pattern is (1/5 = new, 5/5 = chronic).
+
     # Group moments by match_id for fast lookup
     moments_by_match: dict[str, list] = {}
     for m in moments:
@@ -43,6 +47,8 @@ def get_improvement_data(db: Session, match_id: str) -> dict | None:
     )
 
     recent_5_ids = [m.match_id for m in matches[:5]]  # newest first
+    # Note: when history is 3-4 games, this window is smaller than 5.
+    # recent_rate values are comparably smaller but correctly reflect available history.
 
     def recent_rate(moment_type: str) -> int:
         return sum(
