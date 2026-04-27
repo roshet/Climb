@@ -22,6 +22,7 @@ from database import (
 from riot_client import RiotClient, REGIONAL_ROUTING
 from live_game_monitor import LiveGameMonitor
 from champ_select_monitor import ChampSelectMonitor
+from improvement_tracker import get_improvement_data
 from lcu_client import LcuClient
 
 load_dotenv()
@@ -170,6 +171,14 @@ def get_live():
 @app.get("/champ-select")
 def get_champ_select():
     return champ_select_monitor.get_state()
+
+
+@app.get("/improvement/{match_id}")
+def get_improvement(match_id: str):
+    data = get_improvement_data(db, match_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return data
 
 
 @app.get("/player")
