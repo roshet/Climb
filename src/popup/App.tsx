@@ -28,6 +28,19 @@ interface Analysis {
 
 type Filter = 'all' | 'positive' | 'negative'
 
+interface ImprovementPattern {
+  label: 'recurring_issue' | 'win_condition'
+  moment_type: string
+  display: string
+  had_in_game: boolean
+  streak: number
+  recent_rate: number
+}
+
+interface ImprovementData {
+  champion: string
+  patterns: ImprovementPattern[]
+}
 
 function getMatchId(): string | null {
   return new URLSearchParams(window.location.search).get('matchId')
@@ -37,8 +50,38 @@ function formatDuration(secs: number): string {
   return `${Math.floor(secs / 60)}m`
 }
 
+function ImprovementRow({ pattern }: { pattern: ImprovementPattern }) {
+  const { label, display, had_in_game, streak, recent_rate } = pattern
+  const isIssue = label === 'recurring_issue'
+  const name = display.toLowerCase()
+
+  let text: string
+  if (isIssue) {
+    if (!had_in_game) {
+      text = streak >= 2 ? `No ${name} · ${streak} clean in a row` : `No ${name} this game`
+    } else {
+      text = `${display} again · ${recent_rate}/5 recent games`
+    }
+  } else {
+    text = had_in_game ? `${display} — keep it up` : `No ${name} — usually your win condition`
+  }
+
+  const isPositive = (isIssue && !had_in_game) || (!isIssue && had_in_game)
+  return (
+    <div className={`border-l-2 rounded px-3 py-1.5 text-xs ${
+      isPositive
+        ? 'border-green-500 bg-green-950/80 text-green-200'
+        : 'border-red-500 bg-red-950/80 text-red-200'
+    }`}>
+      <span className="mr-1">{isPositive ? '✓' : '⚠'}</span>
+      {text}
+    </div>
+  )
+}
+
 function PopupApp() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [improvement, setImprovement] = useState<ImprovementData | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -47,10 +90,17 @@ function PopupApp() {
 
   useEffect(() => {
     if (!matchId) { setLoading(false); return }
-    fetch(`http://localhost:${port}/analysis/${matchId}`)
-      .then(r => { if (!r.ok) throw new Error('not ok'); return r.json() })
-      .then(data => { setAnalysis(data); setLoading(false) })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch(`http://localhost:${port}/analysis/${matchId}`)
+        .then(r => { if (!r.ok) throw new Error('not ok'); return r.json() as Promise<Analysis> }),
+      fetch(`http://localhost:${port}/improvement/${matchId}`)
+        .then(r => r.ok ? r.json() as Promise<ImprovementData> : null)
+        .catch(() => null),
+    ]).then(([analysisData, improvementData]) => {
+      setAnalysis(analysisData)
+      setImprovement(improvementData)
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [matchId, port])
 
   const openChat = () => {
@@ -122,6 +172,20 @@ function PopupApp() {
           <p className="text-white text-[11px] font-bold">{formatDuration(analysis.duration_secs)}</p>
         </div>
       </div>
+
+      {/* Improvement: vs your patterns */}
+      {improvement && improvement.patterns.length > 0 && (
+        <div className="mb-3">
+          <p className="text-gray-500 text-[9px] uppercase tracking-wide mb-1.5">
+            vs your patterns ({improvement.champion})
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {improvement.patterns.map(p => (
+              <ImprovementRow key={p.moment_type} pattern={p} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="flex gap-2 mb-3">
