@@ -47,6 +47,7 @@ def get_improvement_data(db: Session, match_id: str) -> dict | None:
     )
 
     recent_5_ids = [m.match_id for m in matches[:5]]  # newest first
+    window_size = len(recent_5_ids)
     # Note: when history is 3-4 games, this window is smaller than 5.
     # recent_rate values are comparably smaller but correctly reflect available history.
 
@@ -95,4 +96,4 @@ def get_improvement_data(db: Session, match_id: str) -> dict | None:
                 "recent_rate": rate,
             })
 
-    return {"champion": champion, "patterns": patterns}
+    return {"champion": champion, "patterns": patterns, "window": window_size}

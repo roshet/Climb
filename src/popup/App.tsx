@@ -40,6 +40,7 @@ interface ImprovementPattern {
 interface ImprovementData {
   champion: string
   patterns: ImprovementPattern[]
+  window: number
 }
 
 function getMatchId(): string | null {
@@ -50,7 +51,7 @@ function formatDuration(secs: number): string {
   return `${Math.floor(secs / 60)}m`
 }
 
-function ImprovementRow({ pattern }: { pattern: ImprovementPattern }) {
+function ImprovementRow({ pattern, window }: { pattern: ImprovementPattern; window: number }) {
   const { label, display, had_in_game, streak, recent_rate } = pattern
   const isIssue = label === 'recurring_issue'
   const name = display.toLowerCase()
@@ -60,7 +61,7 @@ function ImprovementRow({ pattern }: { pattern: ImprovementPattern }) {
     if (!had_in_game) {
       text = streak >= 2 ? `No ${name} · ${streak} clean in a row` : `No ${name} this game`
     } else {
-      text = `${display} again · ${recent_rate}/5 recent games`
+      text = `${display} again · ${recent_rate}/${window} recent games`
     }
   } else {
     text = had_in_game ? `${display} — keep it up` : `No ${name} — usually your win condition`
@@ -100,7 +101,11 @@ function PopupApp() {
       setAnalysis(analysisData)
       setImprovement(improvementData)
       setLoading(false)
-    }).catch(() => setLoading(false))
+    }).catch(() => {
+      setAnalysis(null)
+      setImprovement(null)
+      setLoading(false)
+    })
   }, [matchId, port])
 
   const openChat = () => {
@@ -181,7 +186,7 @@ function PopupApp() {
           </p>
           <div className="flex flex-col gap-1.5">
             {improvement.patterns.map(p => (
-              <ImprovementRow key={p.moment_type} pattern={p} />
+              <ImprovementRow key={p.moment_type} pattern={p} window={improvement.window} />
             ))}
           </div>
         </div>
