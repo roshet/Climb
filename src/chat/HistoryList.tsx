@@ -9,6 +9,7 @@ interface MatchRow {
   duration_secs: number
   played_at: string
   moment_count: number
+  gold_lost: number
 }
 
 function relativeDate(iso: string): string {
@@ -22,6 +23,12 @@ function relativeDate(iso: string): string {
 
 function formatDuration(secs: number): string {
   return `${Math.floor(secs / 60)}m`
+}
+
+function goldColor(goldLost: number): string {
+  if (goldLost < 500) return 'text-green-400'
+  if (goldLost <= 1500) return 'text-yellow-400'
+  return 'text-red-400'
 }
 
 interface HistoryListProps {
@@ -93,6 +100,11 @@ export function HistoryList({ port, onSelect }: HistoryListProps) {
               <div className="text-gray-500 text-xs">{relativeDate(m.played_at)}</div>
               {m.moment_count > 0 && (
                 <div className="text-indigo-400 text-xs mt-0.5">{m.moment_count} moments</div>
+              )}
+              {m.gold_lost > 0 && (
+                <div className={`text-xs mt-0.5 font-mono ${goldColor(m.gold_lost)}`}>
+                  −{m.gold_lost.toLocaleString()}g
+                </div>
               )}
             </div>
           </button>
