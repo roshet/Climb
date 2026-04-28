@@ -313,7 +313,7 @@ def list_matches(champion: Optional[str] = None, result: Optional[str] = None, l
     gold_by_match: dict[str, int] = {}
     for moment in all_moments:
         moment_counts[moment.match_id] = moment_counts.get(moment.match_id, 0) + 1
-        if moment.gold_impact and moment.gold_impact < 0:
+        if moment.gold_impact < 0:
             gold_by_match[moment.match_id] = gold_by_match.get(moment.match_id, 0) + abs(moment.gold_impact)
     return [
         {

@@ -22,7 +22,7 @@ def make_match(db, match_id, day=1):
 def compute_gold_lost(moments) -> dict[str, int]:
     result: dict[str, int] = {}
     for m in moments:
-        if m.gold_impact and m.gold_impact < 0:
+        if m.gold_impact < 0:
             result[m.match_id] = result.get(m.match_id, 0) + abs(m.gold_impact)
     return result
 
