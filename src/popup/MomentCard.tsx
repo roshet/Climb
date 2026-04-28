@@ -38,6 +38,11 @@ export function MomentCard({ timestampSecs, momentType, description, counterfact
               {formatType(momentType)}
             </span>
             <span className={`${labelColor} text-[9px] opacity-60`}>{time}</span>
+            {goldImpact < 0 && (
+              <span className="text-red-400 text-[9px] font-mono ml-auto">
+                −{Math.abs(goldImpact).toLocaleString()}g
+              </span>
+            )}
           </div>
           <p className="text-white text-xs leading-snug">{description}</p>
         </div>
