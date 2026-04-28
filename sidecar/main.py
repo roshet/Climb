@@ -310,8 +310,11 @@ def list_matches(champion: Optional[str] = None, result: Optional[str] = None, l
     match_ids = [m.match_id for m in matches]
     all_moments = get_pivotal_moments(db, match_ids) if match_ids else []
     moment_counts: dict[str, int] = {}
+    gold_by_match: dict[str, int] = {}
     for moment in all_moments:
         moment_counts[moment.match_id] = moment_counts.get(moment.match_id, 0) + 1
+        if moment.gold_impact and moment.gold_impact < 0:
+            gold_by_match[moment.match_id] = gold_by_match.get(moment.match_id, 0) + abs(moment.gold_impact)
     return [
         {
             "match_id": m.match_id,
@@ -323,6 +326,7 @@ def list_matches(champion: Optional[str] = None, result: Optional[str] = None, l
             "duration_secs": m.duration_secs,
             "played_at": m.played_at.isoformat(),
             "moment_count": moment_counts.get(m.match_id, 0),
+            "gold_lost": gold_by_match.get(m.match_id, 0),
         }
         for m in matches
     ]
