@@ -47,10 +47,6 @@ function getMatchId(): string | null {
   return new URLSearchParams(window.location.search).get('matchId')
 }
 
-function formatDuration(secs: number): string {
-  return `${Math.floor(secs / 60)}m`
-}
-
 function ImprovementRow({ pattern, window }: { pattern: ImprovementPattern; window: number }) {
   const { label, display, had_in_game, streak, recent_rate } = pattern
   const isIssue = label === 'recurring_issue'
