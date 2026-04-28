@@ -175,7 +175,7 @@ function PopupApp() {
         <div className={`bg-red-950 border rounded-lg p-2 text-center ${goldLost > 0 ? 'border-red-800' : 'border-transparent'}`}>
           <p className="text-red-200 text-[8px] uppercase tracking-wide mb-0.5">Gold Lost</p>
           <p className={`text-[11px] font-bold ${goldLost === 0 ? 'text-gray-500' : 'text-white'}`}>
-            −{goldLost.toLocaleString()}g
+            {goldLost === 0 ? '0g' : `−${goldLost.toLocaleString()}g`}
           </p>
         </div>
       </div>
