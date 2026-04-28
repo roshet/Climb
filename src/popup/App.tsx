@@ -143,6 +143,10 @@ function PopupApp() {
 
   const isWin = analysis.result === 'win'
 
+  const goldLost = analysis.moments
+    .filter(m => m.gold_impact < 0)
+    .reduce((sum, m) => sum + Math.abs(m.gold_impact), 0)
+
   return (
     <div className="bg-[#1a1a2e] min-h-screen p-4 text-white font-sans">
 
@@ -172,9 +176,11 @@ function PopupApp() {
           <p className="text-gray-500 text-[8px] uppercase tracking-wide mb-0.5">KDA</p>
           <p className="text-white text-[11px] font-bold">{analysis.kda}</p>
         </div>
-        <div className="bg-[#1e1e3a] rounded-lg p-2 text-center">
-          <p className="text-gray-500 text-[8px] uppercase tracking-wide mb-0.5">Time</p>
-          <p className="text-white text-[11px] font-bold">{formatDuration(analysis.duration_secs)}</p>
+        <div className={`bg-red-950 border rounded-lg p-2 text-center ${goldLost > 0 ? 'border-red-800' : 'border-transparent'}`}>
+          <p className="text-red-200 text-[8px] uppercase tracking-wide mb-0.5">Gold Lost</p>
+          <p className={`text-[11px] font-bold ${goldLost === 0 ? 'text-gray-500' : 'text-white'}`}>
+            −{goldLost.toLocaleString()}g
+          </p>
         </div>
       </div>
 
