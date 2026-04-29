@@ -95,10 +95,32 @@ class ChampSelectMonitor:
                 log.debug("Failed to build champ data: %s", exc)
                 self._champ_data = None
 
+    def _compute_focus(self, moments: list, total_games: int, champion_specific: bool) -> dict | None:
+        negative_moments = [m for m in moments if m.moment_type not in POSITIVE_TYPES]
+        if not negative_moments:
+            return None
+        games_by_type: dict[str, set] = {}
+        for m in negative_moments:
+            games_by_type.setdefault(m.moment_type, set()).add(m.match_id)
+        top_type = max(games_by_type, key=lambda t: len(games_by_type[t]))
+        games_seen = len(games_by_type[top_type])
+        type_moments = [m for m in negative_moments if m.moment_type == top_type]
+        total_gold = sum(abs(m.gold_impact) for m in type_moments if m.gold_impact < 0)
+        avg_gold_lost = total_gold // games_seen if games_seen > 0 else 0
+        label = MOMENT_LABELS.get(top_type, top_type.replace("_", " ").title())
+        return {
+            "moment_type": top_type,
+            "label": label,
+            "games_seen": games_seen,
+            "total_games": total_games,
+            "avg_gold_lost": avg_gold_lost,
+            "champion_specific": champion_specific,
+        }
+
     def _build_champ_data(self, champion: str) -> dict:
         matches = get_matches(self._db, champion=champion, last_n=20)
         if not matches:
-            return {"games": 0, "wins": 0, "win_rate": 0.0, "no_history": True, "patterns": []}
+            return {"games": 0, "wins": 0, "win_rate": 0.0, "no_history": True, "patterns": [], "focus": None}
 
         games = len(matches)
         wins = sum(1 for m in matches if m.result == "win")
@@ -132,7 +154,25 @@ class ChampSelectMonitor:
                 "summary": f"{label} in your wins",
             })
 
-        return {"games": games, "wins": wins, "win_rate": win_rate, "no_history": False, "patterns": patterns}
+        if games >= 3:
+            focus = self._compute_focus(moments, games, champion_specific=True)
+        else:
+            all_matches = get_matches(self._db, last_n=20)
+            if len(all_matches) >= 3:
+                all_match_ids = [m.match_id for m in all_matches]
+                all_moments = get_pivotal_moments(self._db, all_match_ids)
+                focus = self._compute_focus(all_moments, len(all_matches), champion_specific=False)
+            else:
+                focus = None
+
+        return {
+            "games": games,
+            "wins": wins,
+            "win_rate": win_rate,
+            "no_history": False,
+            "patterns": patterns,
+            "focus": focus,
+        }
 
     async def _poll_loop(self) -> None:
         while True:
