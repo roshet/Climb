@@ -5,6 +5,7 @@ import { InputBar } from './InputBar'
 import { Setup } from './Setup'
 import { HistoryList } from './HistoryList'
 import { GameDetail } from './GameDetail'
+import { TrendChart } from './TrendChart'
 import '../index.css'
 
 declare global {
@@ -152,7 +153,10 @@ function ChatApp() {
 
       {/* History tab */}
       {tab === 'history' && selectedMatchId === null && (
-        <HistoryList port={port} onSelect={setSelectedMatchId} />
+        <>
+          <TrendChart port={port} />
+          <HistoryList port={port} onSelect={setSelectedMatchId} />
+        </>
       )}
       {tab === 'history' && selectedMatchId !== null && (
         <GameDetail
