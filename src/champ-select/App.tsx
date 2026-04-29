@@ -12,12 +12,22 @@ interface Pattern {
   summary: string
 }
 
+interface Focus {
+  moment_type: string
+  label: string
+  games_seen: number
+  total_games: number
+  avg_gold_lost: number
+  champion_specific: boolean
+}
+
 interface ChampData {
   games: number
   wins: number
   win_rate: number
   no_history: boolean
   patterns: Pattern[]
+  focus: Focus | null
 }
 
 interface ChampSelectState {
@@ -36,6 +46,26 @@ function PatternRow({ pattern }: { pattern: Pattern }) {
     }`}>
       <span className="mr-1">{isIssue ? '⚠' : '✓'}</span>
       {pattern.summary}
+    </div>
+  )
+}
+
+function FocusCard({ focus, champion }: { focus: Focus; champion: string }) {
+  const scope = focus.champion_specific ? champion : 'All Champions'
+  return (
+    <div className="mx-2 mt-2 bg-[#1e1b4b] border border-indigo-500/60 rounded-lg px-3 py-2">
+      <p className="text-indigo-300 text-[7px] font-bold uppercase tracking-widest mb-1">
+        ⚡ Today's Focus · {scope}
+      </p>
+      <p className="text-white text-[11px] font-bold">{focus.label}</p>
+      <p className="text-gray-400 text-[8px] mt-0.5">
+        {focus.games_seen} of your last {focus.total_games} games
+      </p>
+      {focus.avg_gold_lost > 0 && (
+        <p className="text-red-400 text-[8px] font-semibold mt-1">
+          avg −{focus.avg_gold_lost.toLocaleString()}g per game
+        </p>
+      )}
     </div>
   )
 }
@@ -78,6 +108,9 @@ function ChampSelectApp() {
             )}
           </div>
         </div>
+        {champ_data?.focus && (
+          <FocusCard focus={champ_data.focus} champion={locked_champion} />
+        )}
         <div className="px-3 py-2 flex flex-col gap-1.5">
           {!champ_data || champ_data.no_history ? (
             <p className="text-gray-500 text-xs">No history yet for {locked_champion} — good luck!</p>
