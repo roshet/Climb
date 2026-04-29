@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react'
 
 interface MatchRow {
+  match_id: string
   gold_lost: number
   moment_count: number
 }
 
 type Metric = 'gold_lost' | 'moment_count'
+
+function barColor(metric: Metric, value: number): string {
+  if (metric === 'moment_count') return 'bg-indigo-500'
+  if (value < 500) return 'bg-green-500'
+  if (value <= 1500) return 'bg-yellow-500'
+  return 'bg-red-500'
+}
 
 interface TrendChartProps {
   port: string
@@ -30,13 +38,6 @@ export function TrendChart({ port }: TrendChartProps) {
   const max = Math.max(...values)
 
   if (max === 0) return null
-
-  function barColor(value: number): string {
-    if (metric === 'moment_count') return 'bg-indigo-500'
-    if (value < 500) return 'bg-green-500'
-    if (value <= 1500) return 'bg-yellow-500'
-    return 'bg-red-500'
-  }
 
   return (
     <div className="bg-[#0d0d1f] border-b border-white/10 px-4 py-3 flex-shrink-0">
@@ -63,11 +64,11 @@ export function TrendChart({ port }: TrendChartProps) {
         </button>
       </div>
       <div className="flex items-end gap-[2px] h-16">
-        {values.map((v, i) => (
+        {matches.map(m => (
           <div
-            key={i}
-            className={`flex-1 rounded-t-sm ${barColor(v)}`}
-            style={{ height: `${(v / max) * 100}%` }}
+            key={m.match_id}
+            className={`flex-1 rounded-t-sm ${barColor(metric, m[metric])}`}
+            style={{ height: `${(m[metric] / max) * 100}%` }}
           />
         ))}
       </div>
