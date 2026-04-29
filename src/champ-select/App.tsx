@@ -108,7 +108,7 @@ function ChampSelectApp() {
             )}
           </div>
         </div>
-        {champ_data?.focus && (
+        {champ_data?.focus && !champ_data.no_history && (
           <FocusCard focus={champ_data.focus} champion={locked_champion} />
         )}
         <div className="px-3 py-2 flex flex-col gap-1.5">
