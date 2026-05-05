@@ -21,10 +21,8 @@ export function TrendChart({ port, matches }: TrendChartProps) {
   const [filteredMatches, setFilteredMatches] = useState<MatchRow[] | null>(null)
 
   useEffect(() => {
-    if (selectedChampion === null) {
-      setFilteredMatches(null)
-      return
-    }
+    setFilteredMatches(null)
+    if (selectedChampion === null) return
     fetch(`http://localhost:${port}/matches?last_n=20&champion=${encodeURIComponent(selectedChampion)}`)
       .then(r => r.ok ? r.json() : null)
       .then((data: unknown) => {
