@@ -65,7 +65,7 @@ function ChatApp() {
   const [loading, setLoading] = useState(false)
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [matches, setMatches] = useState<MatchRow[]>([])
-  const [matchesLoading, setMatchesLoading] = useState(false)
+  const [matchesLoading, setMatchesLoading] = useState(true)
   const [matchesError, setMatchesError] = useState(false)
 
   const port = window.sidecar?.port ?? '8765'
