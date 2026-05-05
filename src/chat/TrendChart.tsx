@@ -1,10 +1,5 @@
-import { useState, useEffect } from 'react'
-
-interface MatchRow {
-  match_id: string
-  gold_lost: number
-  moment_count: number
-}
+import { useState } from 'react'
+import { MatchRow } from './types'
 
 type Metric = 'gold_lost' | 'moment_count'
 
@@ -16,21 +11,11 @@ function barColor(metric: Metric, value: number): string {
 }
 
 interface TrendChartProps {
-  port: string
+  matches: MatchRow[]
 }
 
-export function TrendChart({ port }: TrendChartProps) {
-  const [matches, setMatches] = useState<MatchRow[]>([])
+export function TrendChart({ matches }: TrendChartProps) {
   const [metric, setMetric] = useState<Metric>('gold_lost')
-
-  useEffect(() => {
-    fetch(`http://localhost:${port}/matches?last_n=20`)
-      .then(r => r.ok ? r.json() : [])
-      .then((data: unknown) => {
-        if (Array.isArray(data)) setMatches((data as MatchRow[]).slice().reverse())
-      })
-      .catch(() => {})
-  }, [port])
 
   if (matches.length === 0) return null
 

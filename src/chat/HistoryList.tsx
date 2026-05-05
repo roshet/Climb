@@ -1,16 +1,4 @@
-import { useEffect, useState } from 'react'
-
-interface MatchRow {
-  match_id: string
-  champion: string
-  role: string
-  result: 'win' | 'loss'
-  kda: string
-  duration_secs: number
-  played_at: string
-  moment_count: number
-  gold_lost: number
-}
+import { MatchRow } from './types'
 
 function relativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -32,28 +20,13 @@ function goldColor(goldLost: number): string {
 }
 
 interface HistoryListProps {
-  port: string
+  matches: MatchRow[]
+  loading: boolean
+  error: boolean
   onSelect: (matchId: string) => void
 }
 
-export function HistoryList({ port, onSelect }: HistoryListProps) {
-  const [matches, setMatches] = useState<MatchRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    fetch(`http://localhost:${port}/matches?last_n=20`)
-      .then(r => {
-        if (!r.ok) { setError(true); setLoading(false); return }
-        r.json().then((data: unknown) => {
-          if (Array.isArray(data)) setMatches(data as MatchRow[])
-          else setError(true)
-          setLoading(false)
-        }).catch(() => { setError(true); setLoading(false) })
-      })
-      .catch(() => { setError(true); setLoading(false) })
-  }, [port])
-
+export function HistoryList({ matches, loading, error, onSelect }: HistoryListProps) {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">

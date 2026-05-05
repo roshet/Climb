@@ -6,6 +6,7 @@ import { Setup } from './Setup'
 import { HistoryList } from './HistoryList'
 import { GameDetail } from './GameDetail'
 import { TrendChart } from './TrendChart'
+import { MatchRow } from './types'
 import '../index.css'
 
 declare global {
@@ -63,6 +64,9 @@ function ChatApp() {
   ])
   const [loading, setLoading] = useState(false)
   const [patterns, setPatterns] = useState<Pattern[]>([])
+  const [matches, setMatches] = useState<MatchRow[]>([])
+  const [matchesLoading, setMatchesLoading] = useState(false)
+  const [matchesError, setMatchesError] = useState(false)
 
   const port = window.sidecar?.port ?? '8765'
 
@@ -83,6 +87,24 @@ function ChatApp() {
       .then((data: { patterns: Pattern[] }) => setPatterns(data.patterns))
       .catch(() => {})
   }, [port, isSetup])
+
+  useEffect(() => {
+    if (tab !== 'history' || !isSetup) return
+    setMatchesLoading(true)
+    setMatchesError(false)
+    fetch(`http://localhost:${port}/matches?last_n=20`)
+      .then(r => {
+        if (!r.ok) { setMatchesError(true); setMatchesLoading(false); return }
+        r.json()
+          .then((data: unknown) => {
+            if (Array.isArray(data)) setMatches((data as MatchRow[]).slice().reverse())
+            else setMatchesError(true)
+            setMatchesLoading(false)
+          })
+          .catch(() => { setMatchesError(true); setMatchesLoading(false) })
+      })
+      .catch(() => { setMatchesError(true); setMatchesLoading(false) })
+  }, [port, tab, isSetup])
 
   const sendMessage = useCallback(async (text: string) => {
     setMessages(prev => [...prev, { role: 'user', content: text }])
@@ -154,8 +176,8 @@ function ChatApp() {
       {/* History tab */}
       {tab === 'history' && selectedMatchId === null && (
         <>
-          <TrendChart port={port} />
-          <HistoryList port={port} onSelect={setSelectedMatchId} />
+          <TrendChart matches={matches} />
+          <HistoryList matches={matches} loading={matchesLoading} error={matchesError} onSelect={setSelectedMatchId} />
         </>
       )}
       {tab === 'history' && selectedMatchId !== null && (
