@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MatchRow } from './types'
 
 type Metric = 'gold_lost' | 'moment_count'
@@ -11,21 +11,68 @@ function barColor(metric: Metric, value: number): string {
 }
 
 interface TrendChartProps {
+  port: string
   matches: MatchRow[]
 }
 
-export function TrendChart({ matches }: TrendChartProps) {
+export function TrendChart({ port, matches }: TrendChartProps) {
   const [metric, setMetric] = useState<Metric>('gold_lost')
+  const [selectedChampion, setSelectedChampion] = useState<string | null>(null)
+  const [filteredMatches, setFilteredMatches] = useState<MatchRow[] | null>(null)
+
+  useEffect(() => {
+    if (selectedChampion === null) {
+      setFilteredMatches(null)
+      return
+    }
+    fetch(`http://localhost:${port}/matches?last_n=20&champion=${encodeURIComponent(selectedChampion)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: unknown) => {
+        if (Array.isArray(data)) setFilteredMatches((data as MatchRow[]).slice().reverse())
+      })
+      .catch(() => {})
+  }, [port, selectedChampion])
 
   if (matches.length === 0) return null
 
-  const values = matches.map(m => m[metric])
+  const champions: string[] = []
+  for (let i = matches.length - 1; i >= 0; i--) {
+    if (!champions.includes(matches[i].champion)) champions.push(matches[i].champion)
+  }
+
+  const displayMatches = selectedChampion ? (filteredMatches ?? matches) : matches
+  const values = displayMatches.map(m => m[metric])
   const max = Math.max(...values)
 
   if (max === 0) return null
 
   return (
     <div className="bg-[#0d0d1f] border-b border-white/10 px-4 py-3 flex-shrink-0">
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        <button
+          onClick={() => setSelectedChampion(null)}
+          className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+            selectedChampion === null
+              ? 'bg-indigo-600 text-white font-semibold'
+              : 'bg-transparent text-gray-500 border border-gray-700 hover:text-gray-300'
+          }`}
+        >
+          All
+        </button>
+        {champions.map(champ => (
+          <button
+            key={champ}
+            onClick={() => setSelectedChampion(champ)}
+            className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+              selectedChampion === champ
+                ? 'bg-indigo-600 text-white font-semibold'
+                : 'bg-transparent text-gray-500 border border-gray-700 hover:text-gray-300'
+            }`}
+          >
+            {champ}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-4 mb-2">
         <button
           onClick={() => setMetric('gold_lost')}
@@ -49,7 +96,7 @@ export function TrendChart({ matches }: TrendChartProps) {
         </button>
       </div>
       <div className="flex items-end gap-[2px] h-16">
-        {matches.map(m => (
+        {displayMatches.map(m => (
           <div
             key={m.match_id}
             className={`flex-1 rounded-t-sm ${barColor(metric, m[metric])}`}

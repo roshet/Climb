@@ -176,7 +176,7 @@ function ChatApp() {
       {/* History tab */}
       {tab === 'history' && selectedMatchId === null && (
         <>
-          <TrendChart matches={matches} />
+          <TrendChart port={port} matches={matches} />
           <HistoryList matches={matches} loading={matchesLoading} error={matchesError} onSelect={setSelectedMatchId} />
         </>
       )}
