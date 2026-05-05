@@ -52,6 +52,17 @@ const MOMENT_LABELS: Record<string, string> = {
   bad_back_gold: 'Bad Backs (Low Gold)',
 }
 
+function buildSessionMessage(games: MatchRow[], isToday: boolean): string {
+  const header = isToday
+    ? `Summarize my session today (${games.length} game${games.length === 1 ? '' : 's'}):`
+    : `I haven't played today. Here are my last ${games.length} games:`
+  const lines = games.map((m, i) => {
+    const mins = Math.round(m.duration_secs / 60)
+    return `${i + 1}. ${m.champion} (${m.result === 'win' ? 'Win' : 'Loss'}, ${m.kda}, ${mins}min, ${m.gold_lost}g lost, ${m.moment_count} mistakes)`
+  })
+  return `${header}\n\n${lines.join('\n')}\n\nWhat patterns do you see? What went well and what should I focus on next session?`
+}
+
 function ChatApp() {
   const [isSetup, setIsSetup] = useState<boolean | null>(null)
   const [tab, setTab] = useState<Tab>('chat')
@@ -63,6 +74,7 @@ function ChatApp() {
     { role: 'assistant', content: "Hi! I'm your personal LoL analyst. Ask me anything about your games — patterns, mistakes, champion performance, or what to focus on to climb." }
   ])
   const [loading, setLoading] = useState(false)
+  const [summarizing, setSummarizing] = useState(false)
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [matches, setMatches] = useState<MatchRow[]>([])
   const [matchesLoading, setMatchesLoading] = useState(true)
@@ -137,6 +149,26 @@ function ChatApp() {
   }, [])
 
   const handleBack = useCallback(() => setSelectedMatchId(null), [])
+
+  const handleSummarize = useCallback(async () => {
+    setSummarizing(true)
+    try {
+      const res = await fetch(`http://localhost:${port}/matches?last_n=20`)
+      if (!res.ok) return
+      const data = await res.json() as unknown
+      if (!Array.isArray(data)) return
+      const all = (data as MatchRow[]).slice().reverse()
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayGames = all.filter(m => new Date(m.played_at) >= today)
+      const games = todayGames.length > 0 ? todayGames : all.slice(-5)
+      sendMessage(buildSessionMessage(games, todayGames.length > 0))
+    } catch {
+      // silently swallow fetch/parse errors
+    } finally {
+      setSummarizing(false)
+    }
+  }, [port, sendMessage])
 
   if (isSetup === null) {
     return (
@@ -214,6 +246,15 @@ function ChatApp() {
               ))}
             </div>
           )}
+          <div className="px-4 py-2 border-b border-white/10 flex-shrink-0">
+            <button
+              onClick={handleSummarize}
+              disabled={summarizing || loading}
+              className="w-full text-left text-xs text-indigo-300 hover:text-indigo-100 py-1 transition-colors disabled:opacity-50"
+            >
+              {summarizing ? 'Loading...' : '✦ Summarize today\'s session'}
+            </button>
+          </div>
           <MessageList messages={messages} />
           {loading && (
             <div className="px-4 pb-1 flex-shrink-0">
