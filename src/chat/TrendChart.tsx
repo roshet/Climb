@@ -76,7 +76,7 @@ export function TrendChart({ port, matches }: TrendChartProps) {
           </button>
         ))}
       </div>
-      {selectedChampion !== null && (
+      {selectedChampion !== null && filteredMatches !== null && (
         <div className="flex gap-3 mb-2 text-[10px]">
           <span className="text-gray-400">{champGames} game{champGames === 1 ? '' : 's'}</span>
           <span className="text-gray-600">·</span>
