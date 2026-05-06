@@ -39,6 +39,11 @@ export function TrendChart({ port, matches }: TrendChartProps) {
   }
 
   const displayMatches = selectedChampion ? (filteredMatches ?? matches) : matches
+  const champGames = displayMatches.length
+  const champWins = displayMatches.filter(m => m.result === 'win').length
+  const champWinRate = champGames > 0 ? Math.round(champWins / champGames * 100) : 0
+  const champAvgGold = champGames > 0 ? Math.round(displayMatches.reduce((s, m) => s + m.gold_lost, 0) / champGames) : 0
+  const champAvgMistakes = champGames > 0 ? (displayMatches.reduce((s, m) => s + m.moment_count, 0) / champGames).toFixed(1) : '0.0'
   const values = displayMatches.map(m => m[metric])
   const max = Math.max(...values)
 
@@ -71,6 +76,17 @@ export function TrendChart({ port, matches }: TrendChartProps) {
           </button>
         ))}
       </div>
+      {selectedChampion !== null && (
+        <div className="flex gap-3 mb-2 text-[10px]">
+          <span className="text-gray-400">{champGames} game{champGames === 1 ? '' : 's'}</span>
+          <span className="text-gray-600">·</span>
+          <span className={champWinRate >= 50 ? 'text-green-400' : 'text-red-400'}>{champWinRate}% WR</span>
+          <span className="text-gray-600">·</span>
+          <span className={champAvgGold < 500 ? 'text-green-400' : champAvgGold <= 1500 ? 'text-yellow-400' : 'text-red-400'}>−{champAvgGold.toLocaleString()}g avg</span>
+          <span className="text-gray-600">·</span>
+          <span className="text-gray-400">{champAvgMistakes} mistakes/game</span>
+        </div>
+      )}
       <div className="flex gap-4 mb-2">
         <button
           onClick={() => setMetric('gold_lost')}
