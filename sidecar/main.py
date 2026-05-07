@@ -21,7 +21,7 @@ from database import (
 )
 from riot_client import RiotClient, REGIONAL_ROUTING
 from live_game_monitor import LiveGameMonitor
-from champ_select_monitor import ChampSelectMonitor
+from champ_select_monitor import ChampSelectMonitor, POSITIVE_TYPES
 from improvement_tracker import get_improvement_data
 from lcu_client import LcuClient
 
@@ -313,7 +313,7 @@ def list_matches(champion: Optional[str] = None, result: Optional[str] = None, l
     gold_by_match: dict[str, int] = {}
     for moment in all_moments:
         moment_counts[moment.match_id] = moment_counts.get(moment.match_id, 0) + 1
-        if moment.gold_impact < 0:
+        if moment.moment_type not in POSITIVE_TYPES:
             gold_by_match[moment.match_id] = gold_by_match.get(moment.match_id, 0) + abs(moment.gold_impact)
     return [
         {
