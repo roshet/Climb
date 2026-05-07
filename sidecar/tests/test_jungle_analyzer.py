@@ -36,6 +36,7 @@ def test_invade_death_in_enemy_jungle():
 
 def test_invade_death_not_triggered_in_own_jungle():
     # Blue side jungler dies at (2000, 10000) — inside blue side jungle (own jungle)
+    # Should produce jungle_death (catch-all), NOT invade_death
     timeline = {"info": {"frames": [
         make_frame(300000, [
             {"type": "CHAMPION_KILL", "timestamp": 300000,
@@ -47,6 +48,8 @@ def test_invade_death_not_triggered_in_own_jungle():
     moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
     invades = [m for m in moments if m.moment_type == "invade_death"]
     assert len(invades) == 0
+    jungle_deaths = [m for m in moments if m.moment_type == "jungle_death"]
+    assert len(jungle_deaths) == 1
 
 
 def test_counter_ganked_in_ally_lane():
@@ -230,3 +233,37 @@ def test_void_grubs_not_flagged_if_player_team_gets_them():
     moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
     grub_misses = [m for m in moments if m.moment_type == "void_grubs_missed"]
     assert len(grub_misses) == 0
+
+
+def test_death_fallback_own_jungle():
+    # Blue side jungler dies at (3000, 9000) — inside blue side jungle (own jungle)
+    # Not in enemy jungle (x < 8000 or y > 7500), not in a lane
+    timeline = {"info": {"frames": [
+        make_frame(600000, [
+            {"type": "CHAMPION_KILL", "timestamp": 600000,
+             "killerId": 6, "victimId": JUNGLE_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 3000, "y": 9000}}
+        ]),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    assert len(moments) == 1
+    assert moments[0].moment_type == "jungle_death"
+    assert "jungle" in moments[0].description.lower()
+    assert moments[0].gold_impact == 300
+
+
+def test_death_fallback_skirmish():
+    # Blue side jungler dies at (7500, 6000) — mid-map, not own jungle, not enemy jungle, not lane
+    timeline = {"info": {"frames": [
+        make_frame(900000, [
+            {"type": "CHAMPION_KILL", "timestamp": 900000,
+             "killerId": 7, "victimId": JUNGLE_ID,
+             "assistingParticipantIds": [],
+             "position": {"x": 7500, "y": 6000}}
+        ]),
+    ]}}
+    moments = analyze_jungle(timeline, participant_id=JUNGLE_ID)
+    assert len(moments) == 1
+    assert moments[0].moment_type == "death"
+    assert moments[0].gold_impact == 300

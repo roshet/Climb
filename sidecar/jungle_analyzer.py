@@ -44,6 +44,15 @@ def _in_ally_lane(position: dict, participant_id: int) -> bool:
     )
 
 
+def _in_own_jungle(position: dict, participant_id: int) -> bool:
+    """True if position is inside the player's own jungle quadrant."""
+    px, py = position.get("x", 0), position.get("y", 0)
+    if _is_blue_side(participant_id):
+        return px <= BLUE_JUNGLE_X_MAX and py >= BLUE_JUNGLE_Y_MIN
+    else:
+        return px >= RED_JUNGLE_X_MIN and py <= RED_JUNGLE_Y_MAX
+
+
 def _jungler_position_at(frames: list, timestamp_ms: int, participant_id: int) -> dict | None:
     """Get jungler's position from the most recent frame at or before timestamp_ms."""
     best_frame = None
@@ -78,11 +87,12 @@ def analyze_jungle(
             if event_type == "CHAMPION_KILL":
                 if event.get("victimId") == participant_id:
                     last_death_ts = event["timestamp"] // 1000
-                # Detection order: invade > counter-gank > gank assist
+                # Detection order: invade > counter-gank > gank assist > fallback
                 moment = (
                     _detect_invade_death(event, participant_id)
                     or _detect_counter_ganked(event, participant_id, enemy_jungler_id)
                     or _detect_gank_assist(event, participant_id)
+                    or _detect_death_fallback(event, participant_id)
                 )
 
             elif event_type == "ELITE_MONSTER_KILL":
@@ -169,6 +179,31 @@ def _detect_gank_assist(event: dict, participant_id: int) -> PivotalMomentData |
         timestamp_secs=ts,
         moment_type="gank_assist",
         description=f"You ganked and got a kill at {mins}:{secs:02d}.",
+        counterfactual="",
+        gold_impact=GOLD_VALUES["DEATH"],
+    )
+
+
+def _detect_death_fallback(event: dict, participant_id: int) -> PivotalMomentData | None:
+    """Catch-all: fires for any jungler death not caught by a more specific detector."""
+    if event.get("victimId") != participant_id:
+        return None
+    ts = event["timestamp"] // 1000
+    mins, secs = divmod(ts, 60)
+    time_str = f"{mins}:{secs:02d}"
+    position = event.get("position", {"x": 0, "y": 0})
+    if _in_own_jungle(position, participant_id):
+        return PivotalMomentData(
+            timestamp_secs=ts,
+            moment_type="jungle_death",
+            description=f"You were caught in your jungle at {time_str}.",
+            counterfactual="",
+            gold_impact=GOLD_VALUES["DEATH"],
+        )
+    return PivotalMomentData(
+        timestamp_secs=ts,
+        moment_type="death",
+        description=f"You died in a skirmish at {time_str}.",
         counterfactual="",
         gold_impact=GOLD_VALUES["DEATH"],
     )
