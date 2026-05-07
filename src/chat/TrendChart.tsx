@@ -19,6 +19,7 @@ export function TrendChart({ port, matches }: TrendChartProps) {
   const [metric, setMetric] = useState<Metric>('gold_lost')
   const [selectedChampion, setSelectedChampion] = useState<string | null>(null)
   const [filteredMatches, setFilteredMatches] = useState<MatchRow[] | null>(null)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   useEffect(() => {
     setFilteredMatches(null)
@@ -49,6 +50,11 @@ export function TrendChart({ port, matches }: TrendChartProps) {
   const fallbackMetric: Metric = 'moment_count'
   const displayValues = max === 0 ? displayMatches.map(m => m[fallbackMetric]) : values
   const displayMax = max === 0 ? Math.max(...displayValues) : max
+  const activeMetric = max === 0 ? fallbackMetric : metric
+  const tooltipValue = (m: MatchRow) =>
+    activeMetric === 'gold_lost'
+      ? `−${m.gold_lost.toLocaleString()}g`
+      : `${m.moment_count} mistake${m.moment_count === 1 ? '' : 's'}`
 
   if (displayMax === 0) return null
 
@@ -112,13 +118,46 @@ export function TrendChart({ port, matches }: TrendChartProps) {
           Mistakes
         </button>
       </div>
+      {activeMetric === 'gold_lost' && (
+        <div className="flex gap-3 mb-2 text-[9px] text-gray-500">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+            &lt;500g
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />
+            500–1500g
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+            &gt;1500g
+          </span>
+        </div>
+      )}
       <div className="flex items-end gap-[2px] h-16">
         {displayMatches.map((m, i) => (
           <div
             key={m.match_id}
-            className={`flex-1 rounded-t-sm ${barColor(max === 0 ? fallbackMetric : metric, displayValues[i])}`}
-            style={{ height: `${(displayValues[i] / displayMax) * 100}%` }}
-          />
+            className="flex-1 relative flex items-end h-full"
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            {hoveredIndex === i && (
+              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 bg-[#1a1a2e] border border-white/20 rounded px-2 py-1 text-[9px] whitespace-nowrap pointer-events-none">
+                <span className="text-gray-300">{m.champion}</span>
+                <span className="text-gray-600 mx-1">·</span>
+                <span className={m.result === 'win' ? 'text-green-400' : 'text-red-400'}>
+                  {m.result === 'win' ? 'W' : 'L'}
+                </span>
+                <span className="text-gray-600 mx-1">·</span>
+                <span className="text-gray-300">{tooltipValue(m)}</span>
+              </div>
+            )}
+            <div
+              className={`w-full rounded-t-sm ${barColor(max === 0 ? fallbackMetric : metric, displayValues[i])}`}
+              style={{ height: `${(displayValues[i] / displayMax) * 100}%` }}
+            />
+          </div>
         ))}
       </div>
       <div className="flex justify-between mt-1">
