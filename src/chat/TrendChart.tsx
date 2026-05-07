@@ -46,8 +46,11 @@ export function TrendChart({ port, matches }: TrendChartProps) {
   const champAvgMistakes = champGames > 0 ? (displayMatches.reduce((s, m) => s + m.moment_count, 0) / champGames).toFixed(1) : '0.0'
   const values = displayMatches.map(m => m[metric])
   const max = Math.max(...values)
+  const fallbackMetric: Metric = 'moment_count'
+  const displayValues = max === 0 ? displayMatches.map(m => m[fallbackMetric]) : values
+  const displayMax = max === 0 ? Math.max(...displayValues) : max
 
-  if (max === 0) return null
+  if (displayMax === 0) return null
 
   return (
     <div className="bg-[#0d0d1f] border-b border-white/10 px-4 py-3 flex-shrink-0">
@@ -110,11 +113,11 @@ export function TrendChart({ port, matches }: TrendChartProps) {
         </button>
       </div>
       <div className="flex items-end gap-[2px] h-16">
-        {displayMatches.map(m => (
+        {displayMatches.map((m, i) => (
           <div
             key={m.match_id}
-            className={`flex-1 rounded-t-sm ${barColor(metric, m[metric])}`}
-            style={{ height: `${(m[metric] / max) * 100}%` }}
+            className={`flex-1 rounded-t-sm ${barColor(max === 0 ? fallbackMetric : metric, displayValues[i])}`}
+            style={{ height: `${(displayValues[i] / displayMax) * 100}%` }}
           />
         ))}
       </div>
