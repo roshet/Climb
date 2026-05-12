@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain } from 'electron'
 import path from 'path'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, execSync, ChildProcess } from 'child_process'
 import fs from 'fs'
 
 app.setName('Climb')
@@ -51,7 +51,22 @@ function saveConfig(config: Config): void {
 
 // --- Sidecar Management ---
 
+function killPortProcess(port: string) {
+  try {
+    const output = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' })
+    for (const line of output.trim().split('\n')) {
+      if (!line.includes('LISTENING')) continue
+      const parts = line.trim().split(/\s+/)
+      const pid = parts[parts.length - 1]
+      if (pid && pid !== '0') {
+        try { execSync(`taskkill /F /PID ${pid}`) } catch { /* already gone */ }
+      }
+    }
+  } catch { /* no process on port */ }
+}
+
 function startSidecar(config: Config) {
+  killPortProcess(SIDECAR_PORT)
   const pythonPath = isDev
     ? path.join(__dirname, '..', '..', 'sidecar', 'venv', 'Scripts', 'python.exe')
     : path.join(process.resourcesPath, 'sidecar', 'venv', 'Scripts', 'python.exe')

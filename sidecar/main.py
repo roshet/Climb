@@ -10,15 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backfill import analyze_and_save_match, run_backfill
+from backfill import analyze_and_save_match, run_backfill, SMITE_ID
 from pattern_detector import detect_patterns
 from claude_client import ClaudeClient
 from database import (
     AppState,
-    clear_pending_popup, get_chat_history, get_matches, get_pending_popup,
-    get_pivotal_moments, get_player, init_db, save_chat_message,
-    save_player, set_pending_popup,
+    clear_pending_popup, delete_pivotal_moments, get_chat_history, get_matches,
+    get_pending_popup, get_pivotal_moments, get_player, init_db, save_chat_message,
+    save_pivotal_moments, save_player, set_pending_popup,
 )
+from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 from riot_client import RiotClient, REGIONAL_ROUTING
 from live_game_monitor import LiveGameMonitor
 from champ_select_monitor import ChampSelectMonitor, POSITIVE_TYPES
@@ -302,6 +303,62 @@ def open_chat_signal(req: OpenChatRequest):
     db.merge(AppState(key="open_chat", value=req.match_id or ""))
     db.commit()
     return {"ok": True}
+
+
+@app.post("/admin/reanalyze-all")
+async def reanalyze_all():
+    player = get_player(db)
+    if not player:
+        raise HTTPException(status_code=400, detail="No player profile")
+    matches = get_matches(db, last_n=100)
+    reanalyzed = 0
+    errors = []
+    for match in matches:
+        try:
+            match_data = await riot.get_match(match.match_id)
+            info = match_data["info"]
+            participants = info["participants"]
+            participant = next(p for p in participants if p["puuid"] == player.riot_puuid)
+            participant_index = participants.index(participant) + 1
+            player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
+            enemy_jungler_entry = next(
+                ((i + 1, p) for i, p in enumerate(participants)
+                 if (i + 1) not in player_team_ids
+                 and (p.get("summoner1Id") == SMITE_ID or p.get("summoner2Id") == SMITE_ID)),
+                None,
+            )
+            enemy_jungler_id = enemy_jungler_entry[0] if enemy_jungler_entry else None
+            lane_opponent_entry = next(
+                ((i + 1, p) for i, p in enumerate(participants)
+                 if (i + 1) not in player_team_ids
+                 and p.get("teamPosition") == match.role),
+                None,
+            )
+            lane_opponent_id = lane_opponent_entry[0] if lane_opponent_entry else None
+            moments = analyze_timeline(
+                match.raw_timeline,
+                participant_id=participant_index,
+                enemy_jungler_id=enemy_jungler_id,
+                role=match.role,
+                champion=match.champion,
+                lane_opponent_id=lane_opponent_id,
+            )
+            delete_pivotal_moments(db, match.match_id)
+            save_pivotal_moments(db, match.match_id, [
+                {
+                    "timestamp_secs": m.timestamp_secs,
+                    "moment_type": m.moment_type,
+                    "description": m.description,
+                    "counterfactual": m.counterfactual,
+                    "gold_impact": m.gold_impact,
+                }
+                for m in moments
+            ])
+            reanalyzed += 1
+        except Exception as e:
+            print(f"[reanalyze] Error for {match.match_id}: {e}")
+            errors.append({"match_id": match.match_id, "error": str(e)})
+    return {"ok": True, "reanalyzed": reanalyzed, "errors": errors}
 
 
 @app.get("/matches")

@@ -97,6 +97,11 @@ def save_pivotal_moments(db: Session, match_id: str, moments: list[dict]) -> Non
     db.commit()
 
 
+def delete_pivotal_moments(db: Session, match_id: str) -> None:
+    db.query(PivotalMoment).filter(PivotalMoment.match_id == match_id).delete()
+    db.commit()
+
+
 def get_pivotal_moments(db: Session, match_ids: list[str]) -> list[PivotalMoment]:
     return db.query(PivotalMoment).filter(PivotalMoment.match_id.in_(match_ids)).all()
 
