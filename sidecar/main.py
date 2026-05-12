@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -22,7 +23,7 @@ from database import (
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 from riot_client import RiotClient, REGIONAL_ROUTING
 from live_game_monitor import LiveGameMonitor
-from champ_select_monitor import ChampSelectMonitor, POSITIVE_TYPES
+from champ_select_monitor import ChampSelectMonitor, MOMENT_LABELS, POSITIVE_TYPES
 from improvement_tracker import get_improvement_data
 from lcu_client import LcuClient
 
@@ -44,6 +45,22 @@ _watcher_task: Optional[asyncio.Task] = None
 _backfill_running = False
 
 
+async def _generate_and_store_focus_card() -> None:
+    try:
+        patterns = detect_patterns(db)
+        top_issue = next((p for p in patterns if p.label == "recurring_issue"), None)
+        if not top_issue:
+            return
+        player = get_player(db)
+        if not player:
+            return
+        focus = claude.generate_focus_card(top_issue, player.summoner_name)
+        db.merge(AppState(key="focus_card", value=json.dumps(focus)))
+        db.commit()
+    except Exception as e:
+        print(f"[focus_card] Failed to generate: {e}")
+
+
 async def backfill_history() -> None:
     global _backfill_running
     if _backfill_running:
@@ -54,6 +71,7 @@ async def backfill_history() -> None:
         if not player:
             return
         await run_backfill(riot, db, claude, player)
+        await _generate_and_store_focus_card()
     finally:
         _backfill_running = False
 
@@ -89,6 +107,7 @@ async def run_post_game_analysis():
             return  # already analyzed
         await analyze_and_save_match(riot, db, claude, player, match_id)
         set_pending_popup(db, match_id=match_id)
+        await _generate_and_store_focus_card()
     except Exception as e:
         print(f"[watcher] Error during post-game analysis: {e}")
 
@@ -180,6 +199,44 @@ def get_improvement(match_id: str):
     if data is None:
         raise HTTPException(status_code=404, detail="Match not found")
     return data
+
+
+@app.get("/focus")
+def get_focus():
+    row = db.query(AppState).filter(AppState.key == "focus_card").first()
+    if not row or not row.value:
+        return None
+    stored = json.loads(row.value)
+    patterns = detect_patterns(db)
+    top_issue = next((p for p in patterns if p.label == "recurring_issue"), None)
+    if not top_issue:
+        return None
+    recent_matches = get_matches(db, last_n=20)
+    recent_ids = [m.match_id for m in recent_matches]
+    recent_moments = get_pivotal_moments(db, recent_ids)
+    moments_by_match: dict[str, set] = {}
+    for m in recent_moments:
+        moments_by_match.setdefault(m.match_id, set()).add(m.moment_type)
+    streak_clean = 0
+    for mid in recent_ids:
+        if top_issue.moment_type not in moments_by_match.get(mid, set()):
+            streak_clean += 1
+        else:
+            break
+    display = MOMENT_LABELS.get(
+        top_issue.moment_type,
+        top_issue.moment_type.replace("_", " ").title(),
+    )
+    return {
+        "moment_type": top_issue.moment_type,
+        "display": display,
+        "coaching_sentence": stored["coaching_sentence"],
+        "cta_message": stored["cta_message"],
+        "win_rate": round(top_issue.win_rate_with, 3),
+        "games_seen": top_issue.games_seen,
+        "total_games": top_issue.total_games,
+        "streak_clean": streak_clean,
+    }
 
 
 @app.get("/player")
