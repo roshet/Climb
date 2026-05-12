@@ -230,8 +230,8 @@ def get_focus():
     return {
         "moment_type": top_issue.moment_type,
         "display": display,
-        "coaching_sentence": stored["coaching_sentence"],
-        "cta_message": stored["cta_message"],
+        "coaching_sentence": stored.get("coaching_sentence", ""),
+        "cta_message": stored.get("cta_message", ""),
         "win_rate": round(top_issue.win_rate_with, 3),
         "games_seen": top_issue.games_seen,
         "total_games": top_issue.total_games,
