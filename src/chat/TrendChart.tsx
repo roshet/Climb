@@ -22,6 +22,7 @@ export function TrendChart({ port, matches }: TrendChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   useEffect(() => {
+    setHoveredIndex(null)
     setFilteredMatches(null)
     if (selectedChampion === null) return
     fetch(`http://localhost:${port}/matches?last_n=20&champion=${encodeURIComponent(selectedChampion)}`)
@@ -143,7 +144,7 @@ export function TrendChart({ port, matches }: TrendChartProps) {
             onMouseLeave={() => setHoveredIndex(null)}
           >
             {hoveredIndex === i && (
-              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 bg-[#1a1a2e] border border-white/20 rounded px-2 py-1 text-[9px] whitespace-nowrap pointer-events-none">
+              <div className={`absolute bottom-full mb-1 z-10 bg-[#1a1a2e] border border-white/20 rounded px-2 py-1 text-[9px] whitespace-nowrap pointer-events-none ${i === 0 ? 'left-0' : i === displayMatches.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
                 <span className="text-gray-300">{m.champion}</span>
                 <span className="text-gray-600 mx-1">·</span>
                 <span className={m.result === 'win' ? 'text-green-400' : 'text-red-400'}>
@@ -154,7 +155,7 @@ export function TrendChart({ port, matches }: TrendChartProps) {
               </div>
             )}
             <div
-              className={`w-full rounded-t-sm ${barColor(max === 0 ? fallbackMetric : metric, displayValues[i])}`}
+              className={`w-full rounded-t-sm ${barColor(activeMetric, displayValues[i])}`}
               style={{ height: `${(displayValues[i] / displayMax) * 100}%` }}
             />
           </div>
