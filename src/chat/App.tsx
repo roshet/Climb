@@ -6,6 +6,7 @@ import { Setup } from './Setup'
 import { HistoryList } from './HistoryList'
 import { GameDetail } from './GameDetail'
 import { TrendChart } from './TrendChart'
+import { FocusCard, FocusCardData } from './FocusCard'
 import { MatchRow } from './types'
 import '../index.css'
 
@@ -79,6 +80,7 @@ function ChatApp() {
   const [matches, setMatches] = useState<MatchRow[]>([])
   const [matchesLoading, setMatchesLoading] = useState(true)
   const [matchesError, setMatchesError] = useState(false)
+  const [focusCard, setFocusCard] = useState<FocusCardData | null>(null)
 
   const port = window.sidecar?.port ?? '8765'
 
@@ -91,6 +93,14 @@ function ChatApp() {
       })
       .catch(() => setIsSetup(null))
   }, [port])
+
+  useEffect(() => {
+    if (!isSetup) return
+    fetch(`http://localhost:${port}/focus`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setFocusCard(data as FocusCardData | null))
+      .catch(() => {})
+  }, [port, isSetup])
 
   useEffect(() => {
     if (!isSetup) return
@@ -224,6 +234,9 @@ function ChatApp() {
       {/* Chat tab */}
       {tab === 'chat' && (
         <>
+          {focusCard && (
+            <FocusCard card={focusCard} onAsk={sendMessage} />
+          )}
           {patterns.length > 0 && (
             <div className="px-4 py-2 border-b border-white/10 flex gap-2 overflow-x-auto flex-shrink-0">
               {patterns.map((p) => (
