@@ -373,3 +373,37 @@ class ClaudeClient:
             fallback_enrich(moments)
 
         return moments
+
+    def generate_focus_card(self, pattern, summoner_name: str) -> dict:
+        win_rate_pct = int(pattern.win_rate_with * 100)
+        overall_pct = int(pattern.overall_win_rate * 100)
+        prompt = (
+            f"You are a League of Legends coach. Write a focus card for {summoner_name} "
+            f"with this recurring issue:\n\n"
+            f"Pattern: {pattern.moment_type}\n"
+            f"Frequency: {pattern.games_seen} of last {pattern.total_games} games\n"
+            f"Win rate with this issue: {win_rate_pct}% (overall: {overall_pct}%)\n\n"
+            f'Return ONLY valid JSON: {{"coaching_sentence": "...", "cta_message": "..."}}\n\n'
+            f"coaching_sentence: 1-2 sentences. Use the player's actual numbers. "
+            f"Describe what's happening and one concrete fix.\n"
+            f"cta_message: The first-person question {summoner_name} would ask a coach. "
+            f"Start with 'I' and end with a question mark."
+        )
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+            )
+            raw = response.text.strip()
+            if raw.startswith("```"):
+                parts = raw.split("```")
+                raw = parts[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            return json.loads(raw)
+        except Exception as e:
+            print(f"[focus_card] Gemini call failed ({e}). Using fallback.")
+            return {
+                "coaching_sentence": pattern.summary,
+                "cta_message": f"Help me fix my {pattern.moment_type.replace('_', ' ')} habit.",
+            }

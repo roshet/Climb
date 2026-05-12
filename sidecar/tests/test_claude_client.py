@@ -134,3 +134,56 @@ def test_generate_coaching_notes_with_empty_patterns():
     )
     prompt = client.client.models.generate_content.call_args[1]["contents"]
     assert "Player's cross-game patterns" not in prompt
+
+
+def _make_focus_client():
+    db = MagicMock()
+    with patch("claude_client.genai.Client"):
+        client = ClaudeClient(api_key="test", db=db)
+    mock_response = MagicMock()
+    mock_response.text = '{"coaching_sentence": "You died early 5/8 games.", "cta_message": "I keep dying early. How do I fix this?"}'
+    client.client.models.generate_content.return_value = mock_response
+    return client
+
+
+def _make_focus_pattern():
+    return PatternResult(
+        moment_type="jungle_death",
+        label="recurring_issue",
+        games_seen=5,
+        total_games=8,
+        win_rate_with=0.40,
+        overall_win_rate=0.55,
+        summary="jungle deaths in 5 of your last 8 games (40% win rate)",
+    )
+
+
+def test_generate_focus_card_returns_sentence_and_cta():
+    client = _make_focus_client()
+    result = client.generate_focus_card(_make_focus_pattern(), "TestPlayer")
+    assert "coaching_sentence" in result
+    assert "cta_message" in result
+    assert isinstance(result["coaching_sentence"], str)
+    assert isinstance(result["cta_message"], str)
+
+
+def test_generate_focus_card_prompt_includes_stats():
+    client = _make_focus_client()
+    client.generate_focus_card(_make_focus_pattern(), "TestPlayer")
+    prompt = client.client.models.generate_content.call_args[1]["contents"]
+    assert "jungle_death" in prompt
+    assert "5" in prompt
+    assert "8" in prompt
+    assert "TestPlayer" in prompt
+
+
+def test_generate_focus_card_fallback_on_exception():
+    db = MagicMock()
+    with patch("claude_client.genai.Client"):
+        client = ClaudeClient(api_key="test", db=db)
+    client.client.models.generate_content.side_effect = Exception("quota exceeded")
+    result = client.generate_focus_card(_make_focus_pattern(), "TestPlayer")
+    assert "coaching_sentence" in result
+    assert "cta_message" in result
+    assert len(result["coaching_sentence"]) > 0
+    assert len(result["cta_message"]) > 0
