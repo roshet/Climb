@@ -36,7 +36,7 @@ export function FocusCard({ card, onAsk }: FocusCardProps) {
           {card.games_seen} of {card.total_games} games
         </span>
         <button
-          onClick={() => onAsk(card.cta_message)}
+          onClick={() => { if (card.cta_message) onAsk(card.cta_message) }}
           className="ml-auto text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-colors"
         >
           Ask Claude →

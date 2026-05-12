@@ -55,6 +55,7 @@ async def _generate_and_store_focus_card() -> None:
         if not player:
             return
         focus = claude.generate_focus_card(top_issue, player.summoner_name)
+        focus["moment_type"] = top_issue.moment_type
         db.merge(AppState(key="focus_card", value=json.dumps(focus)))
         db.commit()
     except Exception as e:
@@ -210,6 +211,8 @@ def get_focus():
     patterns = detect_patterns(db)
     top_issue = next((p for p in patterns if p.label == "recurring_issue"), None)
     if not top_issue:
+        return None
+    if stored.get("moment_type") != top_issue.moment_type:
         return None
     recent_matches = get_matches(db, last_n=20)
     recent_ids = [m.match_id for m in recent_matches]
