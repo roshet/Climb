@@ -405,5 +405,5 @@ class ClaudeClient:
             print(f"[focus_card] Gemini call failed ({e}). Using fallback.")
             return {
                 "coaching_sentence": pattern.summary,
-                "cta_message": f"Help me fix my {pattern.moment_type.replace('_', ' ')} habit.",
+                "cta_message": f"I keep having {pattern.moment_type.replace('_', ' ')} issues. How do I fix this?",
             }
