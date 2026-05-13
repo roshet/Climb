@@ -43,6 +43,12 @@ interface ImprovementData {
   window: number
 }
 
+interface FocusResult {
+  moment_type: string
+  display: string
+  streak_clean: number
+}
+
 function getMatchId(): string | null {
   return new URLSearchParams(window.location.search).get('matchId')
 }
@@ -76,9 +82,38 @@ function ImprovementRow({ pattern, window }: { pattern: ImprovementPattern; wind
   )
 }
 
+function FocusResultBlock({ focus, moments }: { focus: FocusResult; moments: Moment[] }) {
+  const count = moments.filter(m => m.moment_type === focus.moment_type).length
+  const isClean = focus.streak_clean > 0
+
+  let text: string
+  if (isClean) {
+    text = focus.streak_clean >= 2
+      ? `${focus.display} — clean game! ${focus.streak_clean} in a row`
+      : `${focus.display} — clean game!`
+  } else {
+    text = `${focus.display} — ${count} time${count === 1 ? '' : 's'} this game`
+  }
+
+  return (
+    <div className="mb-3">
+      <p className="text-gray-500 text-[9px] uppercase tracking-wide mb-1.5">🎯 Your Focus</p>
+      <div className={`border-l-2 rounded px-3 py-1.5 text-xs ${
+        isClean
+          ? 'border-indigo-500 bg-indigo-950/50 text-indigo-200'
+          : 'border-red-500 bg-red-950/80 text-red-200'
+      }`}>
+        <span className="mr-1">{isClean ? '✓' : '⚠'}</span>
+        {text}
+      </div>
+    </div>
+  )
+}
+
 function PopupApp() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [improvement, setImprovement] = useState<ImprovementData | null>(null)
+  const [focusResult, setFocusResult] = useState<FocusResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -93,13 +128,18 @@ function PopupApp() {
       fetch(`http://localhost:${port}/improvement/${matchId}`)
         .then(r => r.ok ? r.json() as Promise<ImprovementData> : null)
         .catch(() => null),
-    ]).then(([analysisData, improvementData]) => {
+      fetch(`http://localhost:${port}/focus`)
+        .then(r => r.ok ? r.json() as Promise<FocusResult | null> : null)
+        .catch(() => null),
+    ]).then(([analysisData, improvementData, focusData]) => {
       setAnalysis(analysisData)
       setImprovement(improvementData)
+      setFocusResult(focusData ?? null)
       setLoading(false)
     }).catch(() => {
       setAnalysis(null)
       setImprovement(null)
+      setFocusResult(null)
       setLoading(false)
     })
   }, [matchId, port])
@@ -179,6 +219,11 @@ function PopupApp() {
           </p>
         </div>
       </div>
+
+      {/* Focus feedback */}
+      {focusResult && analysis && (
+        <FocusResultBlock focus={focusResult} moments={analysis.moments} />
+      )}
 
       {/* Improvement: vs your patterns */}
       {improvement && improvement.patterns.length > 0 && (
