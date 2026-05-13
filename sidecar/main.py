@@ -202,6 +202,20 @@ def get_improvement(match_id: str):
     return data
 
 
+def _compute_streak_clean(
+    recent_ids: list[str],
+    moments_by_match: dict[str, set],
+    moment_type: str,
+) -> int:
+    streak = 0
+    for mid in recent_ids:
+        if moment_type not in moments_by_match.get(mid, set()):
+            streak += 1
+        else:
+            break
+    return streak
+
+
 @app.get("/focus")
 def get_focus():
     row = db.query(AppState).filter(AppState.key == "focus_card").first()
@@ -220,12 +234,7 @@ def get_focus():
     moments_by_match: dict[str, set] = {}
     for m in recent_moments:
         moments_by_match.setdefault(m.match_id, set()).add(m.moment_type)
-    streak_clean = 0
-    for mid in recent_ids:
-        if top_issue.moment_type not in moments_by_match.get(mid, set()):
-            streak_clean += 1
-        else:
-            break
+    streak_clean = _compute_streak_clean(recent_ids, moments_by_match, top_issue.moment_type)
     display = MOMENT_LABELS.get(
         top_issue.moment_type,
         top_issue.moment_type.replace("_", " ").title(),

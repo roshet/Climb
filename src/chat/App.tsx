@@ -44,8 +44,15 @@ const MOMENT_LABELS: Record<string, string> = {
   objective_missed: 'Missed Objectives',
   tower_lost: 'Towers Lost',
   death: 'Deaths',
+  jungle_death: 'Jungle Deaths',
+  invade_death: 'Invade Deaths',
+  counter_ganked: 'Counter-Ganked',
+  first_blood_assist: 'First Blood Assists',
   solo_kill: 'Solo Kills',
   objective_secured: 'Objectives Secured',
+  gank_assist: 'Gank Assists',
+  baron_secured: 'Baron Secured',
+  dragon_stack: 'Dragon Stacks',
   roam_kill: 'Roam Kills',
   roam_assist: 'Roam Assists',
   ward_kill: 'Vision Control',
@@ -95,15 +102,16 @@ function ChatApp() {
   }, [port])
 
   useEffect(() => {
-    if (!isSetup) return
+    if (isSetup !== true) return
+    if (tab !== 'chat') return
     fetch(`http://localhost:${port}/focus`)
       .then(r => r.ok ? r.json() : null)
       .then(data => setFocusCard(data as FocusCardData | null))
       .catch(() => {})
-  }, [port, isSetup])
+  }, [port, isSetup, tab])
 
   useEffect(() => {
-    if (!isSetup) return
+    if (isSetup !== true) return
     fetch(`http://localhost:${port}/patterns`)
       .then(r => r.ok ? r.json() : { patterns: [] })
       .then((data: { patterns: Pattern[] }) => setPatterns(data.patterns))

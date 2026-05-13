@@ -2,28 +2,9 @@ from dataclasses import dataclass
 from typing import Literal
 from sqlalchemy.orm import Session
 from database import get_matches, get_pivotal_moments
+from champ_select_monitor import MOMENT_LABELS
 
 MIN_PATTERN_GAMES = 3
-
-MOMENT_TYPE_LABELS: dict[str, str] = {
-    "lane_death": "Lane Deaths",
-    "cs_differential": "CS Deficit",
-    "gold_differential": "Gold Deficit",
-    "turret_plates_lost": "Plates Lost",
-    "split_push_death": "Split Push Deaths",
-    "enemy_roam_kill": "Enemy Roams",
-    "low_vision": "Low Vision",
-    "objective_missed": "Missed Objectives",
-    "tower_lost": "Towers Lost",
-    "death": "Deaths",
-    "solo_kill": "Solo Kills",
-    "objective_secured": "Objectives Secured",
-    "roam_kill": "Roam Kills",
-    "roam_assist": "Roam Assists",
-    "ward_kill": "Vision Control",
-    "bad_back_objective": "Bad Backs (Objective)",
-    "bad_back_gold": "Bad Backs (Low Gold)",
-}
 
 
 @dataclass
@@ -78,7 +59,7 @@ def detect_patterns(db: Session, last_n: int = 20) -> list[PatternResult]:
         else:
             continue
 
-        human = MOMENT_TYPE_LABELS.get(moment_type, moment_type.replace("_", " ").title())
+        human = MOMENT_LABELS.get(moment_type, moment_type.replace("_", " ").title())
         summary = (
             f"{human.lower()} in {games_seen} of your last {total_games} games "
             f"({int(win_rate_with * 100)}% win rate)"
