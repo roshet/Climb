@@ -46,6 +46,8 @@ interface ImprovementData {
 interface FocusResult {
   moment_type: string
   display: string
+  coaching_sentence: string
+  cta_message: string
   streak_clean: number
 }
 
@@ -83,8 +85,8 @@ function ImprovementRow({ pattern, window }: { pattern: ImprovementPattern; wind
 }
 
 function FocusResultBlock({ focus, moments }: { focus: FocusResult; moments: Moment[] }) {
-  const count = moments.filter(m => m.moment_type === focus.moment_type).length
   const isClean = focus.streak_clean > 0
+  const count = isClean ? 0 : moments.filter(m => m.moment_type === focus.moment_type).length
 
   let text: string
   if (isClean) {
@@ -134,7 +136,7 @@ function PopupApp() {
     ]).then(([analysisData, improvementData, focusData]) => {
       setAnalysis(analysisData)
       setImprovement(improvementData)
-      setFocusResult(focusData ?? null)
+      setFocusResult(focusData)
       setLoading(false)
     }).catch(() => {
       setAnalysis(null)
