@@ -50,7 +50,11 @@ function PatternRow({ pattern }: { pattern: Pattern }) {
   )
 }
 
-function FocusCard({ focus, champion }: { focus: Focus; champion: string }) {
+function FocusCard({ focus, champion, coachingSentence }: {
+  focus: Focus
+  champion: string
+  coachingSentence?: string | null
+}) {
   const scope = focus.champion_specific ? champion : 'All Champions'
   return (
     <div className="mx-2 mt-2 bg-[#1e1b4b] border border-indigo-500/60 rounded-lg px-3 py-2">
@@ -66,13 +70,28 @@ function FocusCard({ focus, champion }: { focus: Focus; champion: string }) {
           avg −{focus.avg_gold_lost.toLocaleString()}g per game
         </p>
       )}
+      {coachingSentence && (
+        <p className="text-gray-400 text-[8px] italic mt-1.5 leading-relaxed">
+          "{coachingSentence}"
+        </p>
+      )}
     </div>
   )
 }
 
 function ChampSelectApp() {
   const [state, setState] = useState<ChampSelectState | null>(null)
+  const [coachingSentence, setCoachingSentence] = useState<string | null>(null)
   const port = window.sidecar?.port ?? '8765'
+
+  useEffect(() => {
+    fetch(`http://localhost:${port}/focus`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { coaching_sentence?: string } | null) => {
+        setCoachingSentence(data?.coaching_sentence ?? null)
+      })
+      .catch(() => {})
+  }, [port])
 
   useEffect(() => {
     const poll = async () => {
@@ -109,7 +128,11 @@ function ChampSelectApp() {
           </div>
         </div>
         {champ_data?.focus && !champ_data.no_history && (
-          <FocusCard focus={champ_data.focus} champion={locked_champion} />
+          <FocusCard
+            focus={champ_data.focus}
+            champion={locked_champion}
+            coachingSentence={coachingSentence}
+          />
         )}
         <div className="px-3 py-2 flex flex-col gap-1.5">
           {!champ_data || champ_data.no_history ? (
