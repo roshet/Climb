@@ -85,13 +85,18 @@ function ChampSelectApp() {
   const port = window.sidecar?.port ?? '8765'
 
   useEffect(() => {
-    fetch(`http://localhost:${port}/focus`)
-      .then(r => r.ok ? r.json() : null)
-      .then((data: { coaching_sentence?: string } | null) => {
-        setCoachingSentence(data?.coaching_sentence ?? null)
-      })
-      .catch(() => {})
-  }, [port])
+    if (!state?.locked_champion) return
+    setCoachingSentence(null)
+    const load = async () => {
+      try {
+        const r = await fetch(`http://localhost:${port}/focus`)
+        if (!r.ok) return
+        const data = await r.json() as { coaching_sentence?: string }
+        setCoachingSentence(data.coaching_sentence ?? null)
+      } catch { /* sidecar not ready */ }
+    }
+    load()
+  }, [port, state?.locked_champion])
 
   useEffect(() => {
     const poll = async () => {
