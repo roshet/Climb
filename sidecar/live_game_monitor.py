@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -7,6 +8,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from pattern_detector import detect_patterns
+from database import AppState
 
 LIVE_CLIENT_BASE = "https://127.0.0.1:2999/liveclientdata"
 DRAGON_FIRST_SPAWN = 300.0    # 5:00
@@ -37,6 +39,7 @@ class LiveGameMonitor:
         self._patterns_shown = False
         self._last_alert_times: dict[str, float] = {}
         self._task: Optional[asyncio.Task] = None  # type: ignore[type-arg]
+        self._focus: dict | None = None
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._poll_loop())
@@ -77,6 +80,23 @@ class LiveGameMonitor:
             expires_at=now + ALERT_DURATION,
         ))
 
+    def _death_message(self) -> str:
+        if not self._focus:
+            return "You're dead — use this time to plan your next move"
+        display = self._focus.get("display", "")
+        streak = self._focus.get("streak_clean", 0)
+        if streak >= 1:
+            s = "s" if streak != 1 else ""
+            return f"You're dead — {streak} clean game{s} on {display}. Don't let it slip."
+        return f"You're dead — think about {display} while you wait."
+
+    def _load_focus(self) -> None:
+        try:
+            row = self._db.query(AppState).filter(AppState.key == "focus_card").first()
+            self._focus = json.loads(row.value) if row and row.value else None
+        except Exception:
+            self._focus = None
+
     def _process_events(self, events: list[dict], active_player_name: str) -> None:
         for event in events:
             event_id = event.get("EventID", -1)
@@ -97,7 +117,7 @@ class LiveGameMonitor:
                 victim = event.get("VictimName", "")
                 if victim.lower() == active_player_name.lower():
                     self._add_alert(
-                        "You're dead — use this time to plan your next move",
+                        self._death_message(),
                         "death",
                         f"death_{event_id}",
                     )
@@ -130,6 +150,7 @@ class LiveGameMonitor:
         self._next_baron_spawn = BARON_FIRST_SPAWN
         self._patterns_shown = False
         self._last_alert_times = {}
+        self._focus = None
 
     async def _poll_loop(self) -> None:
         while True:
@@ -153,6 +174,7 @@ class LiveGameMonitor:
 
             if not self._in_game:
                 self._in_game = True
+                self._load_focus()
 
             events = events_resp.json().get("Events", [])
             game_time = stats_resp.json().get("gameTime", 0.0)
