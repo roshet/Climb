@@ -156,7 +156,7 @@ def status():
         open_chat_match_id = open_chat_row.value or None
         db.query(AppState).filter(AppState.key == "open_chat").delete()
         db.commit()
-    return {"pending_popup": pending, "open_chat": open_chat_match_id}
+    return {"pending_popup": pending, "open_chat": open_chat_match_id, "backfill_running": _backfill_running}
 
 
 @app.post("/status/clear")

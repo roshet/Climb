@@ -21,6 +21,7 @@ let champSelectWindow: BrowserWindow | null = null
 let _wasInChampSelect = false
 let _lastConfig: Config | null = null
 let _isQuitting = false
+let _lastPopupMatchId: string | null = null
 
 // --- Config ---
 
@@ -278,8 +279,10 @@ async function pollStatus() {
     if (statusRes.ok) {
       const data = await statusRes.json() as { pending_popup: string | null; open_chat: string | null }
       if (data.pending_popup) {
+        _lastPopupMatchId = data.pending_popup
         showPopup(data.pending_popup)
         await fetch(`${SIDECAR_URL}/status/clear`, { method: 'POST' })
+        updateTrayMenu()
       }
       if (data.open_chat !== null && data.open_chat !== undefined) {
         createChatWindow(data.open_chat || undefined)
@@ -367,21 +370,31 @@ ipcMain.on('setup-complete', async (_event, data: Config) => {
 
 // --- Tray ---
 
+function updateTrayMenu() {
+  if (!tray) return
+  const items: Electron.MenuItemConstructorOptions[] = [
+    { label: 'Open Chat', click: () => createChatWindow() },
+  ]
+  if (_lastPopupMatchId) {
+    items.push({ label: 'Last game', click: () => showPopup(_lastPopupMatchId!) })
+  }
+  items.push(
+    { label: 'Settings', click: () => createSetupWindow() },
+    { type: 'separator' },
+    { label: 'Quit', click: () => app.quit() },
+  )
+  tray.setContextMenu(Menu.buildFromTemplate(items))
+}
+
 function createTray() {
   const iconPath = isDev
     ? path.join(__dirname, '..', '..', 'assets', 'icon.png')
     : path.join(process.resourcesPath, 'assets', 'icon.png')
   const icon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty()
   tray = new Tray(icon)
-  const menu = Menu.buildFromTemplate([
-    { label: 'Open Chat', click: () => createChatWindow() },
-    { label: 'Settings', click: () => createSetupWindow() },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
-  ])
-  tray.setContextMenu(menu)
   tray.setToolTip('Climb')
   tray.on('click', () => createChatWindow())
+  updateTrayMenu()
 }
 
 // --- App Lifecycle ---

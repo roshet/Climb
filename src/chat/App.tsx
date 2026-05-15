@@ -88,6 +88,7 @@ function ChatApp() {
   const [matchesLoading, setMatchesLoading] = useState(true)
   const [matchesError, setMatchesError] = useState(false)
   const [focusCard, setFocusCard] = useState<FocusCardData | null>(null)
+  const [backfilling, setBackfilling] = useState(false)
 
   const port = window.sidecar?.port ?? '8765'
 
@@ -116,6 +117,32 @@ function ChatApp() {
       .then(r => r.ok ? r.json() : { patterns: [] })
       .then((data: { patterns: Pattern[] }) => setPatterns(data.patterns))
       .catch(() => {})
+  }, [port, isSetup])
+
+  useEffect(() => {
+    if (isSetup !== true) return
+    const check = () => {
+      fetch(`http://localhost:${port}/status`)
+        .then(r => r.ok ? r.json() : null)
+        .then((data: { backfill_running?: boolean } | null) => {
+          const running = data?.backfill_running ?? false
+          setBackfilling(running)
+          if (!running) {
+            fetch(`http://localhost:${port}/patterns`)
+              .then(r => r.ok ? r.json() : { patterns: [] })
+              .then((d: { patterns: Pattern[] }) => setPatterns(d.patterns))
+              .catch(() => {})
+            fetch(`http://localhost:${port}/focus`)
+              .then(r => r.ok ? r.json() : null)
+              .then(d => setFocusCard(d as FocusCardData | null))
+              .catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
+    check()
+    const id = setInterval(check, 4000)
+    return () => clearInterval(id)
   }, [port, isSetup])
 
   useEffect(() => {
@@ -242,8 +269,21 @@ function ChatApp() {
       {/* Chat tab */}
       {tab === 'chat' && (
         <>
+          {backfilling && (
+            <div className="mx-3 mt-2 px-3 py-2 bg-indigo-950/60 border border-indigo-500/40 rounded-lg flex items-center gap-2 flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shrink-0" />
+              <p className="text-indigo-300 text-[11px]">Analyzing your match history — focus card ready in ~1 min</p>
+            </div>
+          )}
           {focusCard && (
             <FocusCard card={focusCard} onAsk={sendMessage} />
+          )}
+          {!backfilling && patterns.length === 0 && !focusCard && (
+            <div className="mx-3 mt-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg flex-shrink-0">
+              <p className="text-gray-400 text-[11px] leading-relaxed">
+                Play a few games and your focus card will appear here — your top recurring issue with coaching tips.
+              </p>
+            </div>
           )}
           {patterns.length > 0 && (
             <div className="px-4 py-2 border-b border-white/10 flex gap-2 overflow-x-auto flex-shrink-0">
