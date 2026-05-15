@@ -216,6 +216,32 @@ def _compute_streak_clean(
     return streak
 
 
+def _compute_focus_history(
+    recent_ids: list[str],
+    moments_by_match: dict[str, set],
+    moment_type: str,
+    n: int = 10,
+) -> list[bool]:
+    history_ids = list(reversed(recent_ids[:n]))
+    return [
+        moment_type not in moments_by_match.get(mid, set())
+        for mid in history_ids
+    ]
+
+
+def _compute_focus_trend(history: list[bool]) -> Optional[str]:
+    if len(history) < 6:
+        return None
+    mid = len(history) // 2
+    first_half = sum(history[:mid])
+    second_half = sum(history[mid:])
+    if second_half > first_half:
+        return "improving"
+    if second_half < first_half:
+        return "regressing"
+    return None
+
+
 @app.get("/focus")
 def get_focus():
     row = db.query(AppState).filter(AppState.key == "focus_card").first()
@@ -239,6 +265,8 @@ def get_focus():
         top_issue.moment_type,
         top_issue.moment_type.replace("_", " ").title(),
     )
+    history = _compute_focus_history(recent_ids, moments_by_match, top_issue.moment_type)
+    trend = _compute_focus_trend(history)
     return {
         "moment_type": top_issue.moment_type,
         "display": display,
@@ -248,6 +276,8 @@ def get_focus():
         "games_seen": top_issue.games_seen,
         "total_games": top_issue.total_games,
         "streak_clean": streak_clean,
+        "history": history,
+        "trend": trend,
     }
 
 
