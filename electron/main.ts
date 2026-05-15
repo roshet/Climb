@@ -19,6 +19,8 @@ let overlayWindow: BrowserWindow | null = null
 let _wasInGame = false
 let champSelectWindow: BrowserWindow | null = null
 let _wasInChampSelect = false
+let _lastConfig: Config | null = null
+let _isQuitting = false
 
 // --- Config ---
 
@@ -66,6 +68,7 @@ function killPortProcess(port: string) {
 }
 
 function startSidecar(config: Config) {
+  _lastConfig = config
   killPortProcess(SIDECAR_PORT)
   const pythonPath = isDev
     ? path.join(__dirname, '..', '..', 'sidecar', 'venv', 'Scripts', 'python.exe')
@@ -85,12 +88,19 @@ function startSidecar(config: Config) {
       ...process.env,
       RIOT_API_KEY: config.riotApiKey,
       GEMINI_API_KEY: config.geminiApiKey,
+      REGION: config.region,
       DB_PATH: dbPath,
     },
   })
 
   sidecarProcess.stdout?.on('data', (d: Buffer) => console.log('[sidecar]', d.toString().trim()))
   sidecarProcess.stderr?.on('data', (d: Buffer) => console.error('[sidecar]', d.toString().trim()))
+  sidecarProcess.on('close', (code) => {
+    if (!_isQuitting && _lastConfig) {
+      console.log(`[sidecar] exited with code ${code}, restarting in 3s...`)
+      setTimeout(() => startSidecar(_lastConfig!), 3000)
+    }
+  })
 }
 
 function stopSidecar() {
@@ -358,7 +368,10 @@ ipcMain.on('setup-complete', async (_event, data: Config) => {
 // --- Tray ---
 
 function createTray() {
-  const icon = nativeImage.createEmpty()
+  const iconPath = isDev
+    ? path.join(__dirname, '..', '..', 'assets', 'icon.png')
+    : path.join(process.resourcesPath, 'assets', 'icon.png')
+  const icon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty()
   tray = new Tray(icon)
   const menu = Menu.buildFromTemplate([
     { label: 'Open Chat', click: () => createChatWindow() },
@@ -392,6 +405,7 @@ app.on('window-all-closed', (e: Event) => {
 })
 
 app.on('before-quit', () => {
+  _isQuitting = true
   if (statusPollInterval) clearInterval(statusPollInterval)
   _wasInGame = false
   _wasInChampSelect = false
