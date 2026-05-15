@@ -8,7 +8,7 @@ export interface FocusCardData {
   total_games: number
   streak_clean: number
   history?: boolean[]
-  trend?: string | null
+  trend?: 'improving' | 'regressing' | null
 }
 
 interface FocusCardProps {
@@ -37,7 +37,7 @@ export function FocusCard({ card, onAsk }: FocusCardProps) {
           <div className="flex gap-1">
             {card.history.map((clean, i) => (
               <span
-                key={i}
+                key={`dot-${i}`}
                 className={`w-2 h-2 rounded-full ${clean ? 'bg-green-400' : 'bg-red-500'}`}
               />
             ))}
