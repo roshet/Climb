@@ -81,10 +81,10 @@ class LiveGameMonitor:
         ))
 
     def _death_message(self) -> str:
-        if not self._focus:
+        if not self._focus or not self._focus.get("display"):
             return "You're dead — use this time to plan your next move"
         display = self._focus.get("display", "")
-        streak = self._focus.get("streak_clean", 0)
+        streak = int(self._focus.get("streak_clean") or 0)
         if streak >= 1:
             s = "s" if streak != 1 else ""
             return f"You're dead — {streak} clean game{s} on {display}. Don't let it slip."

@@ -147,6 +147,16 @@ def test_death_message_no_streak(monitor):
     assert monitor._death_message() == "You're dead — think about Early Deaths while you wait."
 
 
+def test_death_message_empty_display_falls_back(monitor):
+    monitor._focus = {"display": "", "streak_clean": 0}
+    assert monitor._death_message() == "You're dead — use this time to plan your next move"
+
+
+def test_death_message_null_streak_falls_back_to_no_streak(monitor):
+    monitor._focus = {"display": "Early Deaths", "streak_clean": None}
+    assert monitor._death_message() == "You're dead — think about Early Deaths while you wait."
+
+
 def test_load_focus_reads_from_db(db):
     db.merge(AppState(key="focus_card", value=json.dumps({
         "display": "Early Deaths", "streak_clean": 2, "moment_type": "early_death"
