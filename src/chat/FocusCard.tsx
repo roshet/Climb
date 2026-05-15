@@ -7,6 +7,8 @@ export interface FocusCardData {
   games_seen: number
   total_games: number
   streak_clean: number
+  history?: boolean[]
+  trend?: string | null
 }
 
 interface FocusCardProps {
@@ -27,6 +29,26 @@ export function FocusCard({ card, onAsk }: FocusCardProps) {
           <span className="text-green-400 text-[10px]">
             ↑ Clean last {card.streak_clean} game{card.streak_clean === 1 ? '' : 's'} — keep it up
           </span>
+        </div>
+      )}
+      {card.history && card.history.length > 0 && (
+        <div className="flex items-center gap-1.5 mt-1.5 mb-1">
+          <span className="text-gray-600 text-[9px]">last {card.history.length}</span>
+          <div className="flex gap-1">
+            {card.history.map((clean, i) => (
+              <span
+                key={i}
+                className={`w-2 h-2 rounded-full ${clean ? 'bg-green-400' : 'bg-red-500'}`}
+              />
+            ))}
+          </div>
+          {card.trend && (
+            <span className={`text-[9px] font-semibold ml-0.5 ${
+              card.trend === 'improving' ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {card.trend === 'improving' ? '↑ improving' : '↓ regressing'}
+            </span>
+          )}
         </div>
       )}
       <div className="flex items-center">
