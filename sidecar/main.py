@@ -193,7 +193,18 @@ def get_live():
 
 @app.get("/champ-select")
 def get_champ_select():
-    return champ_select_monitor.get_state()
+    state = dict(champ_select_monitor.get_state())
+    if state.get("champ_data") is not None and state.get("locked_champion"):
+        state["champ_data"] = dict(state["champ_data"])
+        champ_matches = get_matches(db, champion=state["locked_champion"], last_n=50)
+        state["champ_data"]["matchups"] = _get_matchup_stats(db, champ_matches, min_games=3, top_n=3)
+    return state
+
+
+@app.get("/matchups")
+def get_matchups():
+    matches = get_matches(db, last_n=100)
+    return {"matchups": _get_matchup_stats(db, matches, min_games=3, top_n=5)}
 
 
 @app.get("/improvement/{match_id}")
