@@ -29,6 +29,14 @@ interface Pattern {
   summary: string
 }
 
+interface MatchupEntry {
+  opponent: string
+  wins: number
+  losses: number
+  win_rate: number
+  dominant_moment: string | null
+}
+
 type Tab = 'chat' | 'history'
 
 const SESSION_ID = `session-${Date.now()}`
@@ -89,6 +97,7 @@ function ChatApp() {
   const [matchesError, setMatchesError] = useState(false)
   const [focusCard, setFocusCard] = useState<FocusCardData | null>(null)
   const [backfilling, setBackfilling] = useState(false)
+  const [matchups, setMatchups] = useState<MatchupEntry[]>([])
 
   const port = window.sidecar?.port ?? '8765'
 
@@ -121,6 +130,14 @@ function ChatApp() {
 
   useEffect(() => {
     if (isSetup !== true) return
+    fetch(`http://localhost:${port}/matchups`)
+      .then(r => r.ok ? r.json() : { matchups: [] })
+      .then((data: { matchups: MatchupEntry[] }) => setMatchups(data.matchups))
+      .catch(() => {})
+  }, [port, isSetup])
+
+  useEffect(() => {
+    if (isSetup !== true) return
     const check = () => {
       fetch(`http://localhost:${port}/status`)
         .then(r => r.ok ? r.json() : null)
@@ -135,6 +152,10 @@ function ChatApp() {
             fetch(`http://localhost:${port}/focus`)
               .then(r => r.ok ? r.json() : null)
               .then(d => setFocusCard(d as FocusCardData | null))
+              .catch(() => {})
+            fetch(`http://localhost:${port}/matchups`)
+              .then(r => r.ok ? r.json() : { matchups: [] })
+              .then((d: { matchups: MatchupEntry[] }) => setMatchups(d.matchups))
               .catch(() => {})
           }
         })
@@ -304,6 +325,28 @@ function ChatApp() {
                     {p.games_seen} of {p.total_games} · {Math.round(p.win_rate_with * 100)}% WR
                   </div>
                 </button>
+              ))}
+            </div>
+          )}
+          {matchups.length > 0 && (
+            <div className="px-4 py-2 border-b border-white/10 flex-shrink-0">
+              <div className="text-[8px] uppercase tracking-widest text-gray-500 mb-2">tough matchups</div>
+              {matchups.map((m) => (
+                <div key={m.opponent} className="flex justify-between items-center mb-1.5">
+                  <div>
+                    <span className="text-[10px] text-gray-200">vs {m.opponent}</span>
+                    {m.dominant_moment && (
+                      <span className="text-[8px] text-gray-500 ml-1">
+                        {m.dominant_moment.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-bold ${
+                    m.win_rate < 0.4 ? 'text-red-400' : 'text-yellow-400'
+                  }`}>
+                    {m.wins}W {m.losses}L · {Math.round(m.win_rate * 100)}%
+                  </span>
+                </div>
               ))}
             </div>
           )}
