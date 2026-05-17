@@ -47,6 +47,7 @@ async def analyze_and_save_match(
         None,
     )
     lane_opponent_id = lane_opponent_entry[0] if lane_opponent_entry else None
+    lane_opponent_champion = lane_opponent_entry[1]["championName"] if lane_opponent_entry else None
 
     save_match(db_session, {
         "match_id": match_id,
@@ -60,6 +61,7 @@ async def analyze_and_save_match(
         "gold_earned": participant["goldEarned"],
         "vision_score": participant["visionScore"],
         "raw_timeline": timeline_data,
+        "lane_opponent_champion": lane_opponent_champion,
     })
 
     moments = analyze_timeline(
@@ -98,6 +100,44 @@ async def analyze_and_save_match(
     ])
 
 
+async def _backfill_opponent_champions(riot_client, db_session, player) -> None:
+    from database import Match
+    null_rows = (
+        db_session.query(Match)
+        .filter(Match.lane_opponent_champion.is_(None))
+        .limit(20)
+        .all()
+    )
+    if not null_rows:
+        return
+    print(f"[backfill] Filling opponent champion for {len(null_rows)} existing matches")
+    for match in null_rows:
+        try:
+            match_data = await riot_client.get_match(match.match_id)
+            info = match_data["info"]
+            participants = info["participants"]
+            participant = next(
+                (p for p in participants if p["puuid"] == player.riot_puuid), None
+            )
+            if not participant:
+                continue
+            participant_index = participants.index(participant) + 1
+            player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
+            role = participant.get("teamPosition", "UNKNOWN")
+            lane_opponent_entry = next(
+                ((i + 1, p) for i, p in enumerate(participants)
+                 if (i + 1) not in player_team_ids
+                 and p.get("teamPosition") == role),
+                None,
+            )
+            if lane_opponent_entry:
+                match.lane_opponent_champion = lane_opponent_entry[1]["championName"]
+                db_session.commit()
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"[backfill] Could not update opponent for {match.match_id}: {e}")
+
+
 async def run_backfill(riot_client, db_session, claude_client, player) -> None:
     start_time = int(datetime.now(timezone.utc).timestamp() - BACKFILL_DAYS * 24 * 3600)
     match_ids = await riot_client.get_recent_match_ids(
@@ -125,4 +165,5 @@ async def run_backfill(riot_client, db_session, claude_client, player) -> None:
         except Exception as e:
             print(f"[backfill] Error processing {match_id}: {e}")
 
+    await _backfill_opponent_champions(riot_client, db_session, player)
     print(f"[backfill] Complete")
