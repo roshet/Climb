@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
@@ -16,6 +17,7 @@ from pattern_detector import detect_patterns
 from claude_client import ClaudeClient
 from database import (
     AppState,
+    PivotalMoment,
     clear_pending_popup, delete_pivotal_moments, get_chat_history, get_matches,
     get_pending_popup, get_pivotal_moments, get_player, init_db, save_chat_message,
     save_pivotal_moments, save_player, set_pending_popup,
@@ -240,6 +242,47 @@ def _compute_focus_trend(history: list[bool]) -> Optional[str]:
     if second_half < first_half:
         return "regressing"
     return None
+
+
+def _get_matchup_stats(
+    db: Session,
+    matches: list,
+    min_games: int = 3,
+    top_n: int = 5,
+) -> list[dict]:
+    with_opponent = [m for m in matches if m.lane_opponent_champion]
+    by_opponent: dict[str, list] = {}
+    for m in with_opponent:
+        by_opponent.setdefault(m.lane_opponent_champion, []).append(m)
+
+    results = []
+    for opponent, opp_matches in by_opponent.items():
+        if len(opp_matches) < min_games:
+            continue
+        wins = sum(1 for m in opp_matches if m.result == "win")
+        losses = len(opp_matches) - wins
+        win_rate = round(wins / len(opp_matches), 3)
+
+        loss_ids = [m.match_id for m in opp_matches if m.result == "loss"]
+        dominant_moment = None
+        if loss_ids:
+            moments = db.query(PivotalMoment).filter(
+                PivotalMoment.match_id.in_(loss_ids)
+            ).all()
+            if moments:
+                counts = Counter(m.moment_type for m in moments)
+                dominant_moment = min(counts, key=lambda t: (-counts[t], t))
+
+        results.append({
+            "opponent": opponent,
+            "wins": wins,
+            "losses": losses,
+            "win_rate": win_rate,
+            "dominant_moment": dominant_moment,
+        })
+
+    results.sort(key=lambda r: (r["win_rate"], r["opponent"]))
+    return results[:top_n]
 
 
 @app.get("/focus")
