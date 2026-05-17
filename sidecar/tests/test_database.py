@@ -91,3 +91,40 @@ def test_get_all_match_ids_returns_set(db):
 
 def test_get_all_match_ids_empty(db):
     assert get_all_match_ids(db) == set()
+
+
+def test_save_and_retrieve_lane_opponent_champion(db):
+    save_match(db, {
+        "match_id": "NA1_opp1",
+        "played_at": datetime(2026, 4, 1, 20, 0),
+        "champion": "Caitlyn",
+        "role": "BOTTOM",
+        "result": "loss",
+        "duration_secs": 1800,
+        "kda": "2/5/3",
+        "cs": 120,
+        "gold_earned": 9000,
+        "vision_score": 15,
+        "raw_timeline": {},
+        "lane_opponent_champion": "Draven",
+    })
+    matches = get_matches(db)
+    assert matches[0].lane_opponent_champion == "Draven"
+
+
+def test_lane_opponent_champion_nullable(db):
+    save_match(db, {
+        "match_id": "NA1_opp2",
+        "played_at": datetime(2026, 4, 2, 20, 0),
+        "champion": "Caitlyn",
+        "role": "BOTTOM",
+        "result": "win",
+        "duration_secs": 1800,
+        "kda": "8/2/5",
+        "cs": 200,
+        "gold_earned": 14000,
+        "vision_score": 25,
+        "raw_timeline": {},
+    })
+    matches = get_matches(db)
+    assert matches[0].lane_opponent_champion is None

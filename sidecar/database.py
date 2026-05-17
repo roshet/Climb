@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import create_engine, String, Integer, DateTime, JSON, ForeignKey, Text, Engine
+from sqlalchemy import create_engine, String, Integer, DateTime, JSON, ForeignKey, Text, Engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session, relationship
 
 
@@ -22,6 +22,7 @@ class Match(Base):
     gold_earned: Mapped[int] = mapped_column(Integer)
     vision_score: Mapped[int] = mapped_column(Integer)
     raw_timeline: Mapped[dict] = mapped_column(JSON)
+    lane_opponent_champion: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     moments: Mapped[list["PivotalMoment"]] = relationship(back_populates="match")
 
 
@@ -64,6 +65,12 @@ class AppState(Base):
 def init_db(db_path: str = "analyst.db") -> Engine:
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE matches ADD COLUMN lane_opponent_champion TEXT"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
     return engine
 
 
