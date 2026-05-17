@@ -12,6 +12,14 @@ interface Pattern {
   summary: string
 }
 
+interface MatchupEntry {
+  opponent: string
+  wins: number
+  losses: number
+  win_rate: number
+  dominant_moment: string | null
+}
+
 interface Focus {
   moment_type: string
   label: string
@@ -28,6 +36,7 @@ interface ChampData {
   no_history: boolean
   patterns: Pattern[]
   focus: Focus | null
+  matchups?: MatchupEntry[]
 }
 
 interface ChampSelectState {
@@ -150,6 +159,28 @@ function ChampSelectApp() {
             ))
           )}
         </div>
+        {champ_data?.matchups && champ_data.matchups.length > 0 && (
+          <div className="px-3 py-2 border-t border-white/10">
+            <div className="text-[8px] uppercase tracking-widest text-gray-500 mb-1.5">your tough matchups</div>
+            {champ_data.matchups.map((m) => (
+              <div key={m.opponent} className="flex justify-between items-center mb-1">
+                <div>
+                  <span className="text-[10px] text-gray-200">{m.opponent}</span>
+                  {m.dominant_moment && (
+                    <span className="text-[8px] text-gray-500 ml-1">
+                      {m.dominant_moment.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] font-bold ${
+                  m.win_rate < 0.4 ? 'text-red-400' : 'text-yellow-400'
+                }`}>
+                  {m.wins}W {m.losses}L
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
