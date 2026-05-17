@@ -228,7 +228,8 @@ async def test_backfill_stores_lane_opponent_champion(db):
     mock_claude = make_mock_claude()
     player = make_player()
 
-    await run_backfill(mock_riot, db, mock_claude, player)
+    with patch("backfill.asyncio.sleep", new_callable=AsyncMock):
+        await run_backfill(mock_riot, db, mock_claude, player)
 
     matches = get_matches(db)
     assert len(matches) == 1

@@ -120,6 +120,7 @@ async def _backfill_opponent_champions(riot_client, db_session, player) -> None:
                 (p for p in participants if p["puuid"] == player.riot_puuid), None
             )
             if not participant:
+                await asyncio.sleep(1)
                 continue
             participant_index = participants.index(participant) + 1
             player_team_ids = TEAM_100_IDS if participant_index in TEAM_100_IDS else TEAM_200_IDS
