@@ -1,49 +1,13 @@
 import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
+import {
+  ChampSelectPattern as Pattern,
+  ChampSelectFocus as Focus,
+  ChampSelectState,
+} from '../shared/types'
+import { getJson } from '../shared/api'
+import { POLL_INTERVAL } from '../shared/constants'
 import '../index.css'
-
-declare global {
-  interface Window { sidecar: { port: string } }
-}
-
-interface Pattern {
-  label: 'recurring_issue' | 'win_condition'
-  moment_type: string
-  summary: string
-}
-
-interface MatchupEntry {
-  opponent: string
-  wins: number
-  losses: number
-  win_rate: number
-  dominant_moment: string | null
-}
-
-interface Focus {
-  moment_type: string
-  label: string
-  games_seen: number
-  total_games: number
-  avg_gold_lost: number
-  champion_specific: boolean
-}
-
-interface ChampData {
-  games: number
-  wins: number
-  win_rate: number
-  no_history: boolean
-  patterns: Pattern[]
-  focus: Focus | null
-  matchups?: MatchupEntry[]
-}
-
-interface ChampSelectState {
-  in_champ_select: boolean
-  locked_champion: string | null
-  champ_data: ChampData | null
-}
 
 function PatternRow({ pattern }: { pattern: Pattern }) {
   const isIssue = pattern.label === 'recurring_issue'
@@ -91,35 +55,25 @@ function FocusCard({ focus, champion, coachingSentence }: {
 function ChampSelectApp() {
   const [state, setState] = useState<ChampSelectState | null>(null)
   const [coachingSentence, setCoachingSentence] = useState<string | null>(null)
-  const port = window.sidecar?.port ?? '8765'
+  const lockedChampion = state?.locked_champion
 
   useEffect(() => {
-    if (!state?.locked_champion) return
+    if (!lockedChampion) return
     setCoachingSentence(null)
-    const load = async () => {
-      try {
-        const r = await fetch(`http://localhost:${port}/focus`)
-        if (!r.ok) return
-        const data = await r.json() as { coaching_sentence?: string }
-        setCoachingSentence(data.coaching_sentence ?? null)
-      } catch { /* sidecar not ready */ }
-    }
-    load()
-  }, [port, state?.locked_champion])
+    getJson<{ coaching_sentence?: string }>('/focus').then((data) => {
+      setCoachingSentence(data?.coaching_sentence ?? null)
+    })
+  }, [lockedChampion])
 
   useEffect(() => {
     const poll = async () => {
-      try {
-        const res = await fetch(`http://localhost:${port}/champ-select`)
-        if (!res.ok) return
-        const data = await res.json() as ChampSelectState
-        setState(data)
-      } catch { /* sidecar not ready */ }
+      const data = await getJson<ChampSelectState>('/champ-select')
+      if (data) setState(data)
     }
     poll()
-    const interval = setInterval(poll, 2000)
+    const interval = setInterval(poll, POLL_INTERVAL.champSelect)
     return () => clearInterval(interval)
-  }, [port])
+  }, [])
 
   if (!state?.in_champ_select || !state.locked_champion) return null
 

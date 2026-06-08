@@ -10,10 +10,6 @@ import { FocusCard, FocusCardData } from './FocusCard'
 import { MatchRow } from './types'
 import '../index.css'
 
-declare global {
-  interface Window { sidecar: { port: string } }
-}
-
 interface Message {
   role: 'user' | 'assistant'
   content: string

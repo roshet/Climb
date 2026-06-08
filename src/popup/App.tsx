@@ -4,10 +4,6 @@ import { MomentCard } from './MomentCard'
 import { POSITIVE_TYPES } from './constants'
 import '../index.css'
 
-declare global {
-  interface Window { sidecar: { port: string } }
-}
-
 interface Moment {
   timestamp_secs: number
   moment_type: string

@@ -2,10 +2,6 @@ import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
 
-declare global {
-  interface Window { sidecar: { port: string } }
-}
-
 interface Alert {
   id: string
   message: string

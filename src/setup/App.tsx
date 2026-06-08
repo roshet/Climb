@@ -4,7 +4,6 @@ import '../index.css'
 
 declare global {
   interface Window {
-    sidecar: { port: string }
     electron: {
       setupComplete: (data: SetupData) => void
       getConfig: () => Promise<SetupData | null>
