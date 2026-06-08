@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { MatchRow } from './types'
+import { getJson } from '../shared/api'
 
 type Metric = 'gold_lost' | 'moment_count'
 
@@ -11,11 +12,10 @@ function barColor(metric: Metric, value: number): string {
 }
 
 interface TrendChartProps {
-  port: string
   matches: MatchRow[]
 }
 
-export function TrendChart({ port, matches }: TrendChartProps) {
+export function TrendChart({ matches }: TrendChartProps) {
   const [metric, setMetric] = useState<Metric>('gold_lost')
   const [selectedChampion, setSelectedChampion] = useState<string | null>(null)
   const [filteredMatches, setFilteredMatches] = useState<MatchRow[] | null>(null)
@@ -25,13 +25,11 @@ export function TrendChart({ port, matches }: TrendChartProps) {
     setHoveredIndex(null)
     setFilteredMatches(null)
     if (selectedChampion === null) return
-    fetch(`http://localhost:${port}/matches?last_n=20&champion=${encodeURIComponent(selectedChampion)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then((data: unknown) => {
-        if (Array.isArray(data)) setFilteredMatches((data as MatchRow[]).slice().reverse())
+    getJson<MatchRow[]>(`/matches?last_n=20&champion=${encodeURIComponent(selectedChampion)}`)
+      .then(data => {
+        if (Array.isArray(data)) setFilteredMatches(data.slice().reverse())
       })
-      .catch(() => {})
-  }, [port, selectedChampion])
+  }, [selectedChampion])
 
   if (matches.length === 0) return null
 

@@ -4,6 +4,7 @@ import { MomentCard } from './MomentCard'
 import { POSITIVE_TYPES } from './constants'
 import '../index.css'
 import { Moment, Analysis, ImprovementPattern, ImprovementData, FocusResult } from '../shared/types'
+import { getJson, postJson } from '../shared/api'
 
 type Filter = 'all' | 'positive' | 'negative'
 
@@ -75,39 +76,24 @@ function PopupApp() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('all')
 
-  const port = window.sidecar?.port ?? '8765'
   const matchId = getMatchId()
 
   useEffect(() => {
     if (!matchId) { setLoading(false); return }
     Promise.all([
-      fetch(`http://localhost:${port}/analysis/${matchId}`)
-        .then(r => { if (!r.ok) throw new Error('not ok'); return r.json() as Promise<Analysis> }),
-      fetch(`http://localhost:${port}/improvement/${matchId}`)
-        .then(r => r.ok ? r.json() as Promise<ImprovementData> : null)
-        .catch(() => null),
-      fetch(`http://localhost:${port}/focus`)
-        .then(r => r.ok ? r.json() as Promise<FocusResult | null> : null)
-        .catch(() => null),
+      getJson<Analysis>(`/analysis/${matchId}`),
+      getJson<ImprovementData>(`/improvement/${matchId}`),
+      getJson<FocusResult>('/focus'),
     ]).then(([analysisData, improvementData, focusData]) => {
       setAnalysis(analysisData)
       setImprovement(improvementData)
       setFocusResult(focusData)
       setLoading(false)
-    }).catch(() => {
-      setAnalysis(null)
-      setImprovement(null)
-      setFocusResult(null)
-      setLoading(false)
     })
-  }, [matchId, port])
+  }, [matchId])
 
   const openChat = () => {
-    fetch(`http://localhost:${port}/open-chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ match_id: matchId }),
-    })
+    postJson('/open-chat', { match_id: matchId })
   }
 
   if (loading) {

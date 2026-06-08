@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import { sidecarUrl } from '../shared/api'
 
 interface SetupProps {
-  port: string
   onComplete: () => void
 }
 
-export function Setup({ port, onComplete }: SetupProps) {
+export function Setup({ onComplete }: SetupProps) {
   const [gameName, setGameName] = useState('')
   const [tagLine, setTagLine] = useState('')
   const [region, setRegion] = useState('NA1')
@@ -17,7 +17,7 @@ export function Setup({ port, onComplete }: SetupProps) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`http://localhost:${port}/setup`, {
+      const res = await fetch(sidecarUrl('/setup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ summoner_name: gameName.trim(), tag_line: tagLine.trim(), region }),

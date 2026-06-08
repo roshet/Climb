@@ -9,6 +9,7 @@ import { TrendChart } from './TrendChart'
 import { FocusCard, FocusCardData } from './FocusCard'
 import { MatchRow } from './types'
 import { Message, Pattern, MatchupEntry } from '../shared/types'
+import { getJson, postJson } from '../shared/api'
 import '../index.css'
 
 type Tab = 'chat' | 'history'
@@ -94,27 +95,18 @@ function ChatApp() {
   useEffect(() => {
     if (isSetup !== true) return
     if (tab !== 'chat') return
-    fetch(`http://localhost:${port}/focus`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => setFocusCard(data as FocusCardData | null))
-      .catch(() => {})
-  }, [port, isSetup, tab])
+    getJson<FocusCardData>('/focus').then(setFocusCard)
+  }, [isSetup, tab])
 
   useEffect(() => {
     if (isSetup !== true) return
-    fetch(`http://localhost:${port}/patterns`)
-      .then(r => r.ok ? r.json() : { patterns: [] })
-      .then((data: { patterns: Pattern[] }) => setPatterns(data.patterns))
-      .catch(() => {})
-  }, [port, isSetup])
+    getJson<{ patterns: Pattern[] }>('/patterns').then(data => setPatterns(data?.patterns ?? []))
+  }, [isSetup])
 
   useEffect(() => {
     if (isSetup !== true) return
-    fetch(`http://localhost:${port}/matchups`)
-      .then(r => r.ok ? r.json() : { matchups: [] })
-      .then((data: { matchups: MatchupEntry[] }) => setMatchups(data.matchups))
-      .catch(() => {})
-  }, [port, isSetup])
+    getJson<{ matchups: MatchupEntry[] }>('/matchups').then(data => setMatchups(data?.matchups ?? []))
+  }, [isSetup])
 
   useEffect(() => {
     if (isSetup !== true) return
@@ -150,38 +142,25 @@ function ChatApp() {
     if (tab !== 'history' || !isSetup) return
     setMatchesLoading(true)
     setMatchesError(false)
-    fetch(`http://localhost:${port}/matches?last_n=20`)
-      .then(r => {
-        if (!r.ok) { setMatchesError(true); setMatchesLoading(false); return }
-        r.json()
-          .then((data: unknown) => {
-            if (Array.isArray(data)) setMatches((data as MatchRow[]).slice().reverse())
-            else setMatchesError(true)
-            setMatchesLoading(false)
-          })
-          .catch(() => { setMatchesError(true); setMatchesLoading(false) })
-      })
-      .catch(() => { setMatchesError(true); setMatchesLoading(false) })
-  }, [port, tab, isSetup])
+    getJson<MatchRow[]>('/matches?last_n=20').then(data => {
+      if (Array.isArray(data)) setMatches(data.slice().reverse())
+      else setMatchesError(true)
+      setMatchesLoading(false)
+    })
+  }, [tab, isSetup])
 
   const sendMessage = useCallback(async (text: string) => {
     setMessages(prev => [...prev, { role: 'user', content: text }])
     setLoading(true)
-    try {
-      const res = await fetch(`http://localhost:${port}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: SESSION_ID, message: text, match_id: chatMatchId }),
-      })
-      if (!res.ok) throw new Error('sidecar error')
-      const data = await res.json() as { response: string }
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error connecting to analyst. Is the sidecar running?' }])
-    } finally {
-      setLoading(false)
-    }
-  }, [port, chatMatchId])
+    const data = await postJson<{ response: string }>('/chat', {
+      session_id: SESSION_ID, message: text, match_id: chatMatchId,
+    })
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: data?.response ?? 'Error connecting to analyst. Is the sidecar running?',
+    }])
+    setLoading(false)
+  }, [chatMatchId])
 
   const handleAskAboutGame = useCallback((matchId: string) => {
     setChatMatchId(matchId)
@@ -198,23 +177,17 @@ function ChatApp() {
 
   const handleSummarize = useCallback(async () => {
     setSummarizing(true)
-    try {
-      const res = await fetch(`http://localhost:${port}/matches?last_n=20`)
-      if (!res.ok) return
-      const data = await res.json() as unknown
-      if (!Array.isArray(data)) return
-      const all = (data as MatchRow[]).slice().reverse()
+    const data = await getJson<MatchRow[]>('/matches?last_n=20')
+    if (Array.isArray(data)) {
+      const all = data.slice().reverse()
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const todayGames = all.filter(m => new Date(m.played_at) >= today)
       const games = todayGames.length > 0 ? todayGames : all.slice(-5)
       sendMessage(buildSessionMessage(games, todayGames.length > 0))
-    } catch {
-      // silently swallow fetch/parse errors
-    } finally {
-      setSummarizing(false)
     }
-  }, [port, sendMessage])
+    setSummarizing(false)
+  }, [sendMessage])
 
   if (isSetup === null) {
     return (
@@ -225,7 +198,7 @@ function ChatApp() {
   }
 
   if (!isSetup) {
-    return <Setup port={port} onComplete={() => setIsSetup(true)} />
+    return <Setup onComplete={() => setIsSetup(true)} />
   }
 
   return (
@@ -254,14 +227,13 @@ function ChatApp() {
       {/* History tab */}
       {tab === 'history' && selectedMatchId === null && (
         <>
-          <TrendChart port={port} matches={matches} />
+          <TrendChart matches={matches} />
           <HistoryList matches={matches} loading={matchesLoading} error={matchesError} onSelect={setSelectedMatchId} />
         </>
       )}
       {tab === 'history' && selectedMatchId !== null && (
         <GameDetail
           matchId={selectedMatchId}
-          port={port}
           onBack={handleBack}
           onAskAboutGame={handleAskAboutGame}
         />

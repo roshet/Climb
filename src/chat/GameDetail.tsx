@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { MomentCard } from '../popup/MomentCard'
 import { POSITIVE_TYPES } from '../popup/constants'
 import { Analysis } from '../shared/types'
+import { sidecarUrl } from '../shared/api'
 
 type Filter = 'all' | 'positive' | 'negative'
 
 interface GameDetailProps {
   matchId: string
-  port: string
   onBack: () => void
   onAskAboutGame: (matchId: string) => void
 }
@@ -16,20 +16,19 @@ function formatDuration(secs: number): string {
   return `${Math.floor(secs / 60)}m`
 }
 
-export function GameDetail({ matchId, port, onBack, onAskAboutGame }: GameDetailProps) {
+export function GameDetail({ matchId, onBack, onAskAboutGame }: GameDetailProps) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
 
   useEffect(() => {
-    if (!port) return
     setLoading(true)
     setFilter('all')
     setAnalysis(null)
     setError(false)
     const controller = new AbortController()
-    fetch(`http://localhost:${port}/analysis/${matchId}`, { signal: controller.signal })
+    fetch(sidecarUrl(`/analysis/${matchId}`), { signal: controller.signal })
       .then(r => {
         if (!r.ok) { setError(true); setLoading(false); return }
         r.json().then((data: Analysis) => { setAnalysis(data); setLoading(false) })
@@ -41,7 +40,7 @@ export function GameDetail({ matchId, port, onBack, onAskAboutGame }: GameDetail
         setLoading(false)
       })
     return () => controller.abort()
-  }, [matchId, port])
+  }, [matchId])
 
   if (loading) {
     return (
