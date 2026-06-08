@@ -102,13 +102,19 @@ function ChatApp() {
   const port = window.sidecar?.port ?? '8765'
 
   useEffect(() => {
-    fetch(`http://localhost:${port}/player`)
-      .then(r => {
-        if (r.status === 404) { setIsSetup(false); return }
-        if (r.ok)             { setIsSetup(true);  return }
-        setIsSetup(null)
-      })
-      .catch(() => setIsSetup(null))
+    let cancelled = false
+    const check = () => {
+      fetch(`http://localhost:${port}/player`)
+        .then(r => {
+          if (cancelled) return
+          if (r.status === 404) { setIsSetup(false); return }
+          if (r.ok)             { setIsSetup(true);  return }
+          setTimeout(check, 1000)
+        })
+        .catch(() => { if (!cancelled) setTimeout(check, 1000) })
+    }
+    check()
+    return () => { cancelled = true }
   }, [port])
 
   useEffect(() => {
