@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 from collections import Counter
 from contextlib import asynccontextmanager
@@ -30,6 +31,8 @@ from improvement_tracker import get_improvement_data
 from lcu_client import LcuClient
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 RIOT_API_KEY = os.environ["RIOT_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
@@ -416,7 +419,9 @@ def chat(req: ChatRequest):
             pattern_context = "\n".join(lines)
             match_context = (match_context + "\n\n" + pattern_context) if match_context else pattern_context
     except Exception:
-        pass  # pattern injection is best-effort; chat works without it
+        # Pattern injection is best-effort; chat works without it. Log so the failure
+        # is visible instead of silently degrading every chat response.
+        logger.warning("chat pattern injection failed; continuing without it", exc_info=True)
 
     response = claude.chat(
         summoner_name=player.summoner_name,

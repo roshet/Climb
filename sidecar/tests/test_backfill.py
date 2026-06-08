@@ -218,6 +218,35 @@ async def test_analyze_and_save_match_passes_none_patterns_on_detect_failure(db)
 
 
 @pytest.mark.asyncio
+async def test_analyze_and_save_match_skips_when_player_not_found(db):
+    from backfill import analyze_and_save_match
+    from database import get_matches
+
+    # A match the player isn't actually in (e.g. API quirk / wrong puuid).
+    match_without_player = {
+        "info": {
+            **SAMPLE_MATCH_DATA["info"],
+            "participants": [
+                {**p, "puuid": f"stranger-{i}"}
+                for i, p in enumerate(SAMPLE_MATCH_DATA["info"]["participants"])
+            ],
+        }
+    }
+    mock_riot = AsyncMock()
+    mock_riot.get_match.return_value = match_without_player
+    mock_riot.get_timeline.return_value = SAMPLE_TIMELINE
+    mock_claude = make_mock_claude()
+    player = make_player()
+
+    with patch("backfill.asyncio.sleep", new_callable=AsyncMock):
+        # Should skip gracefully, not raise StopIteration.
+        await analyze_and_save_match(mock_riot, db, mock_claude, player, "NA1_NOPLAYER")
+
+    assert get_matches(db) == []
+    mock_claude.generate_coaching_notes.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_backfill_stores_lane_opponent_champion(db):
     from database import get_matches
     mock_riot = AsyncMock()

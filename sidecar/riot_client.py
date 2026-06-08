@@ -14,7 +14,10 @@ class RiotClient:
         self.region = region
         self.regional = REGIONAL_ROUTING.get(region, "americas")
         headers = {"X-Riot-Token": api_key}
+        # Public Riot API: keep TLS verification on (protects the API key in transit).
         self._http = httpx.AsyncClient(headers=headers, timeout=10.0)
+        # Local Live Client Data API serves a self-signed cert on loopback, so verify=False
+        # is required here (and safe — traffic never leaves the machine).
         self._live_http = httpx.AsyncClient(verify=False, timeout=3.0)
 
     async def get_puuid_by_summoner(self, game_name: str, tag_line: str) -> str:

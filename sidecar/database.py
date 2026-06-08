@@ -66,11 +66,12 @@ def init_db(db_path: str = "analyst.db") -> Engine:
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
     with engine.connect() as conn:
-        try:
+        # Add columns introduced after the first release. Check existence explicitly so a
+        # real failure (locked db, permissions) surfaces instead of being swallowed.
+        existing_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(matches)"))}
+        if "lane_opponent_champion" not in existing_cols:
             conn.execute(text("ALTER TABLE matches ADD COLUMN lane_opponent_champion TEXT"))
             conn.commit()
-        except Exception:
-            pass  # column already exists
     return engine
 
 

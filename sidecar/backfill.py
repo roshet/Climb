@@ -25,7 +25,12 @@ async def analyze_and_save_match(
 
     info = match_data["info"]
     participants = info["participants"]
-    participant = next(p for p in participants if p["puuid"] == player.riot_puuid)
+    participant = next(
+        (p for p in participants if p["puuid"] == player.riot_puuid), None
+    )
+    if participant is None:
+        print(f"[backfill] player not found in match {match_id}; skipping")
+        return
     participant_index = participants.index(participant) + 1
     role = participant.get("teamPosition", "UNKNOWN")
     champion = participant["championName"]
