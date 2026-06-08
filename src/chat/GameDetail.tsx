@@ -1,24 +1,7 @@
 import { useEffect, useState } from 'react'
 import { MomentCard } from '../popup/MomentCard'
 import { POSITIVE_TYPES } from '../popup/constants'
-
-interface Moment {
-  timestamp_secs: number
-  moment_type: string
-  description: string
-  counterfactual: string
-  gold_impact: number
-}
-
-interface Analysis {
-  match_id: string
-  champion: string
-  role: string
-  result: 'win' | 'loss'
-  duration_secs: number
-  kda: string
-  moments: Moment[]
-}
+import { Analysis } from '../shared/types'
 
 type Filter = 'all' | 'positive' | 'negative'
 

@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
-
-interface Alert {
-  id: string
-  message: string
-  alert_type: 'objective' | 'death' | 'pattern'
-  expires_at: number
-}
+import { Alert } from '../shared/types'
+import { getJson } from '../shared/api'
+import { POLL_INTERVAL } from '../shared/constants'
 
 const TYPE_BORDER: Record<Alert['alert_type'], string> = {
   objective: 'border-blue-500 bg-blue-950/80',
@@ -62,20 +58,12 @@ function OverlayApp() {
 
   useEffect(() => {
     const poll = async () => {
-      const port = window.sidecar?.port ?? '8765'
-      try {
-        const res = await fetch(`http://localhost:${port}/live`)
-        if (!res.ok) return
-        const data = await res.json() as { alerts: Alert[]; in_game: boolean }
-        if (!data.in_game) {
-          setAlerts([])
-          return
-        }
-        setAlerts(data.alerts ?? [])
-      } catch { /* sidecar not ready */ }
+      const data = await getJson<{ alerts: Alert[]; in_game: boolean }>('/live')
+      if (!data) return
+      setAlerts(data.in_game ? (data.alerts ?? []) : [])
     }
     poll()
-    const interval = setInterval(poll, 2000)
+    const interval = setInterval(poll, POLL_INTERVAL.live)
     return () => clearInterval(interval)
   }, [])
 
@@ -83,7 +71,7 @@ function OverlayApp() {
     const interval = setInterval(() => {
       const now = Date.now() / 1000
       setAlerts((prevAlerts) => prevAlerts.filter((alert) => alert.expires_at > now))
-    }, 500)
+    }, POLL_INTERVAL.liveCleanup)
     return () => clearInterval(interval)
   }, [])
 

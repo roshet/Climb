@@ -1,15 +1,5 @@
-export interface FocusCardData {
-  moment_type: string
-  display: string
-  coaching_sentence: string
-  cta_message: string
-  win_rate: number
-  games_seen: number
-  total_games: number
-  streak_clean: number
-  history?: boolean[]
-  trend?: 'improving' | 'regressing' | null
-}
+import { FocusCardData } from '../shared/types'
+export type { FocusCardData }
 
 interface FocusCardProps {
   card: FocusCardData

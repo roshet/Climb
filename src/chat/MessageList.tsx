@@ -1,9 +1,5 @@
 import { useEffect, useRef } from 'react'
-
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-}
+import { Message } from '../shared/types'
 
 export function MessageList({ messages }: { messages: Message[] }) {
   const bottomRef = useRef<HTMLDivElement>(null)

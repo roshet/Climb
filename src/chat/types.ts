@@ -1,11 +1,3 @@
-export interface MatchRow {
-  match_id: string
-  champion: string
-  role: string
-  result: 'win' | 'loss'
-  kda: string
-  duration_secs: number
-  played_at: string
-  moment_count: number
-  gold_lost: number
-}
+// Re-exported from the shared single source of truth; kept here so existing
+// `from './types'` imports continue to work.
+export type { MatchRow } from '../shared/types'

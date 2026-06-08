@@ -3,49 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { MomentCard } from './MomentCard'
 import { POSITIVE_TYPES } from './constants'
 import '../index.css'
-
-interface Moment {
-  timestamp_secs: number
-  moment_type: string
-  description: string
-  counterfactual: string
-  gold_impact: number
-}
-
-interface Analysis {
-  match_id: string
-  champion: string
-  role: string
-  result: 'win' | 'loss'
-  duration_secs: number
-  kda: string
-  moments: Moment[]
-}
+import { Moment, Analysis, ImprovementPattern, ImprovementData, FocusResult } from '../shared/types'
 
 type Filter = 'all' | 'positive' | 'negative'
-
-interface ImprovementPattern {
-  label: 'recurring_issue' | 'win_condition'
-  moment_type: string
-  display: string
-  had_in_game: boolean
-  streak: number
-  recent_rate: number
-}
-
-interface ImprovementData {
-  champion: string
-  patterns: ImprovementPattern[]
-  window: number
-}
-
-interface FocusResult {
-  moment_type: string
-  display: string
-  coaching_sentence: string
-  cta_message: string
-  streak_clean: number
-}
 
 function getMatchId(): string | null {
   return new URLSearchParams(window.location.search).get('matchId')

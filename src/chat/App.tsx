@@ -8,30 +8,8 @@ import { GameDetail } from './GameDetail'
 import { TrendChart } from './TrendChart'
 import { FocusCard, FocusCardData } from './FocusCard'
 import { MatchRow } from './types'
+import { Message, Pattern, MatchupEntry } from '../shared/types'
 import '../index.css'
-
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-interface Pattern {
-  moment_type: string
-  label: 'recurring_issue' | 'win_condition'
-  games_seen: number
-  total_games: number
-  win_rate_with: number
-  overall_win_rate: number
-  summary: string
-}
-
-interface MatchupEntry {
-  opponent: string
-  wins: number
-  losses: number
-  win_rate: number
-  dominant_moment: string | null
-}
 
 type Tab = 'chat' | 'history'
 
