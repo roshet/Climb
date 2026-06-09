@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -7,6 +8,11 @@ export default defineConfig({
   plugins: [tailwindcss(), react()],
   root: 'src',
   base: './',
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
+    include: ['**/*.test.{ts,tsx}'],
+  },
   build: {
     outDir: '../dist/renderer',
     emptyOutDir: true,

@@ -8,7 +8,9 @@
     "package": "npm run build && electron-builder",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "minimatch": "^10.2.5",
@@ -18,6 +20,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.5.2",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
@@ -30,11 +34,13 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.60.1",
-    "vite": "^8.0.3"
+    "vite": "^8.0.3",
+    "vitest": "^4.1.8"
   },
   "build": {
     "appId": "com.climb.app",
