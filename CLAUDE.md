@@ -15,7 +15,9 @@ Frontend / Electron (run from repo root):
 - `npm run dev` — compiles electron TS, then runs Vite + tsc-watch + Electron concurrently (live reload).
 - `npm run build` — `vite build` (renderer → `dist/renderer/`) + `tsc -p tsconfig.electron.json` (→ `dist/electron/`).
 - `npm run package` — build + `electron-builder` → NSIS installer in `dist-installer/`.
-- There are no `lint`/`typecheck`/`test` npm scripts yet.
+- `npm run typecheck` — `tsc --noEmit` over the renderer + Electron code.
+- `npm run lint` — ESLint (flat config in `eslint.config.mjs`); `npm run lint:fix` to autofix.
+- `npm test` — Vitest (jsdom) unit/component tests; `npm run test:watch` for watch mode.
 
 Backend (run from `sidecar/`):
 - Install: `pip install -r requirements.txt`
@@ -24,12 +26,25 @@ Backend (run from `sidecar/`):
 - Single test: `python -m pytest tests/test_pattern_detector.py::test_detects_recurring_issue -v`
 - `pytest.ini` sets `pythonpath=.`, `testpaths=tests`, `asyncio_mode=auto` — run pytest from inside `sidecar/`.
 
+## Verification
+
+Run the relevant gate before considering a change done / committing:
+- **Frontend or Electron changes:** `npm run typecheck`, `npm run lint`, and `npm test`
+  (add `npm run build` when the change could affect build output).
+- **Backend changes:** `cd sidecar && python -m pytest`.
+
+CI enforces all of this on every push and pull request via `.github/workflows/ci.yml`
+(backend `pytest`; frontend typecheck + lint + test + build), so make sure it's green
+locally before pushing. Lint baseline: **0 errors** — the only warnings are
+`react-refresh/only-export-components` on the window entry files, which are expected and
+non-blocking.
+
 ## Configuration
 
 The sidecar reads config from environment variables, injected by the Electron main process:
-`RIOT_API_KEY`, `GEMINI_API_KEY`, `REGION` (e.g. `NA1`), `DB_PATH`. For standalone backend
-dev, put these in `sidecar/.env` (loaded via python-dotenv). NOTE: `.env.example` currently
-lists `ANTHROPIC_API_KEY` but the code uses `GEMINI_API_KEY` — use `GEMINI_API_KEY`.
+`RIOT_API_KEY`, `GEMINI_API_KEY`, `REGION` (e.g. `NA1`), `DB_PATH`. The LLM is Google Gemini,
+so the key is `GEMINI_API_KEY` (see `.env.example`). For standalone backend dev, put these in
+`sidecar/.env` (loaded via python-dotenv).
 In the packaged app, user config lives in `%APPDATA%/Climb/config.json` (written by the
 setup window) and the DB in `%APPDATA%/Climb/analyst.db`. In dev the DB is `sidecar/analyst.db`.
 
@@ -47,7 +62,8 @@ Backend (`sidecar/`):
 - `main.py` — FastAPI app, ~15 REST endpoints, lifespan-managed background tasks
   (`game_end_watcher`, `LiveGameMonitor`, `ChampSelectMonitor`, backfill).
 - `database.py` — SQLAlchemy models: `matches` (incl. `raw_timeline` JSON, `lane_opponent_champion`),
-  `pivotal_moments`, `chat_messages`, `player`, `app_state`. Migrations are ad-hoc `ALTER TABLE` in `init_db()`.
+  `pivotal_moments`, `chat_messages`, `player`, `app_state`. Post-release columns are added in
+  `init_db()` via an explicit `PRAGMA table_info` check (so real DB errors surface; no Alembic yet).
 - `timeline_analyzer.py` (base) + `laner_analyzer.py` + `jungle_analyzer.py` — role-aware
   pivotal-moment detection (deaths, objectives, towers, CS/gold diffs, backs, vision).
 - `pattern_detector.py` — cross-game recurring issues / win conditions (≥3 games, ±10% WR).
@@ -72,9 +88,14 @@ Electron (`electron/`):
 
 ## Conventions & gotchas
 
-- Each React window currently redefines its own copies of shared types (`Pattern`,
-  `MatchupEntry`, `Focus`) and its own `fetch`+poll logic — there is no shared types/api
-  module yet. Keep new shapes consistent with the backend JSON until that's consolidated.
-- Windows talk to the backend via `http://localhost:${window.sidecar.port}` (default 8765).
+- `src/shared/` is the single source of truth for the frontend: `types.ts` (API contract
+  types), `api.ts` (`sidecarUrl` / `getJson` / `postJson` typed client + the one
+  `Window.sidecar` global declaration), and `constants.ts` (`DEFAULT_SIDECAR_PORT`,
+  `POLL_INTERVAL`). New windows/components should import from there, not redefine types or
+  hand-build `http://localhost:...` URLs.
+- Exception by design: chat's `/player` retry loop and `/status` poll loop in
+  `src/chat/App.tsx` remain raw `fetch` (they're stateful); everything else uses the shared client.
+- `sidecar/claude_client.py` is named misleadingly — it uses Google Gemini, not Anthropic
+  (rename intentionally deferred).
 - `docs/superpowers/plans/` and `docs/superpowers/specs/` hold the dated design history;
   new features here have historically started with a spec + plan there.
