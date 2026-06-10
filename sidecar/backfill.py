@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -8,6 +9,8 @@ from database import (
 )
 from pattern_detector import detect_patterns
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
+
+logger = logging.getLogger(__name__)
 
 BACKFILL_DAYS = 30
 SMITE_ID = 11
@@ -29,7 +32,7 @@ async def analyze_and_save_match(
         (p for p in participants if p["puuid"] == player.riot_puuid), None
     )
     if participant is None:
-        print(f"[backfill] player not found in match {match_id}; skipping")
+        logger.warning("player not found in match %s; skipping", match_id)
         return
     participant_index = participants.index(participant) + 1
     role = participant.get("teamPosition", "UNKNOWN")
@@ -90,7 +93,7 @@ async def analyze_and_save_match(
     try:
         game_patterns = detect_patterns(db_session)
     except Exception as e:
-        print(f"[backfill] detect_patterns failed ({e}); skipping pattern context")
+        logger.warning("detect_patterns failed (%s); skipping pattern context", e)
         game_patterns = None
     enriched = claude_client.generate_coaching_notes(moments, game_context, timeline_data, patterns=game_patterns)
     save_pivotal_moments(db_session, match_id, [
@@ -115,7 +118,7 @@ async def _backfill_opponent_champions(riot_client, db_session, player) -> None:
     )
     if not null_rows:
         return
-    print(f"[backfill] Filling opponent champion for {len(null_rows)} existing matches")
+    logger.info("Filling opponent champion for %d existing matches", len(null_rows))
     for match in null_rows:
         try:
             match_data = await riot_client.get_match(match.match_id)
@@ -141,7 +144,7 @@ async def _backfill_opponent_champions(riot_client, db_session, player) -> None:
                 db_session.commit()
             await asyncio.sleep(1)
         except Exception as e:
-            print(f"[backfill] Could not update opponent for {match.match_id}: {e}")
+            logger.warning("Could not update opponent for %s: %s", match.match_id, e)
 
 
 async def run_backfill(riot_client, db_session, claude_client, player) -> None:
@@ -151,7 +154,7 @@ async def run_backfill(riot_client, db_session, claude_client, player) -> None:
     )
     existing_ids = get_all_match_ids(db_session)
     new_ids = [mid for mid in match_ids if mid not in existing_ids]
-    print(f"[backfill] {len(new_ids)} new matches to analyze")
+    logger.info("%d new matches to analyze", len(new_ids))
 
     for match_id in new_ids:
         try:
@@ -159,17 +162,17 @@ async def run_backfill(riot_client, db_session, claude_client, player) -> None:
             await asyncio.sleep(3)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                print(f"[backfill] Rate limited — waiting 10s before retrying {match_id}")
+                logger.warning("Rate limited — waiting 10s before retrying %s", match_id)
                 await asyncio.sleep(10)
                 try:
                     await analyze_and_save_match(riot_client, db_session, claude_client, player, match_id)
                     await asyncio.sleep(3)
                 except Exception as retry_err:
-                    print(f"[backfill] Retry failed for {match_id}: {retry_err}")
+                    logger.error("Retry failed for %s: %s", match_id, retry_err)
             else:
-                print(f"[backfill] HTTP error for {match_id}: {e}")
+                logger.error("HTTP error for %s: %s", match_id, e)
         except Exception as e:
-            print(f"[backfill] Error processing {match_id}: {e}")
+            logger.error("Error processing %s: %s", match_id, e)
 
     await _backfill_opponent_champions(riot_client, db_session, player)
-    print(f"[backfill] Complete")
+    logger.info("Complete")

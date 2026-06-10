@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from pattern_detector import detect_patterns
 from database import AppState
+
+logger = logging.getLogger(__name__)
 
 LIVE_CLIENT_BASE = "https://127.0.0.1:2999/liveclientdata"
 DRAGON_FIRST_SPAWN = 300.0    # 5:00
@@ -157,7 +160,7 @@ class LiveGameMonitor:
             try:
                 await self._tick()
             except Exception:
-                pass
+                logger.warning("Live-game tick failed", exc_info=True)
             await asyncio.sleep(2)
 
     async def _tick(self) -> None:

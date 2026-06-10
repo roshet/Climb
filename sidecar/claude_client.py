@@ -1,9 +1,12 @@
 import json
+import logging
 from sqlalchemy.orm import Session
 from google import genai
 from google.genai import types
 from database import get_matches, get_pivotal_moments
 from timeline_analyzer import TEAM_100_IDS, TEAM_200_IDS
+
+logger = logging.getLogger(__name__)
 
 ROLE_GUIDANCE: dict[str, str] = {
     "TOP": "Focus on wave management, split push decisions, and teleport usage. Reference the lane opponent and proximity of the enemy jungler.",
@@ -270,7 +273,7 @@ class ClaudeClient:
             return response.text
         except genai_errors.ClientError as e:
             if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                print(f"[chat] Gemini quota exceeded: {e}")
+                logger.warning("Gemini quota exceeded: %s", e)
                 return (
                     "I've hit my daily AI quota — the free tier allows 20 requests per day. "
                     "Try again tomorrow, or add a paid Gemini API key to your .env file."
@@ -369,7 +372,7 @@ class ClaudeClient:
                 if i in coaching_map:
                     m.counterfactual = coaching_map[i]
         except Exception as e:
-            print(f"[coaching] Gemini call failed ({e}). Using static fallback.")
+            logger.warning("Gemini coaching-notes call failed (%s). Using static fallback.", e)
             fallback_enrich(moments)
 
         return moments
@@ -402,7 +405,7 @@ class ClaudeClient:
                     raw = raw[4:]
             return json.loads(raw)
         except Exception as e:
-            print(f"[focus_card] Gemini call failed ({e}). Using fallback.")
+            logger.warning("Gemini focus-card call failed (%s). Using fallback.", e)
             return {
                 "coaching_sentence": pattern.summary,
                 "cta_message": f"I keep having {pattern.moment_type.replace('_', ' ')} issues. How do I fix this?",

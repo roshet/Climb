@@ -32,6 +32,9 @@ from lcu_client import LcuClient
 
 load_dotenv()
 
+from logging_config import configure_logging
+configure_logging()
+
 logger = logging.getLogger(__name__)
 
 RIOT_API_KEY = os.environ["RIOT_API_KEY"]
@@ -64,7 +67,7 @@ async def _generate_and_store_focus_card() -> None:
         db.merge(AppState(key="focus_card", value=json.dumps(focus)))
         db.commit()
     except Exception as e:
-        print(f"[focus_card] Failed to generate: {e}")
+        logger.error("[focus_card] Failed to generate: %s", e)
 
 
 async def backfill_history() -> None:
@@ -89,13 +92,13 @@ async def game_end_watcher():
         try:
             in_game = await riot.is_in_game()
             if in_game != was_in_game:
-                print(f"[watcher] in_game state changed: {was_in_game} -> {in_game}")
+                logger.info("[watcher] in_game state changed: %s -> %s", was_in_game, in_game)
             if was_in_game and not in_game:
-                print("[watcher] Game ended, running analysis...")
+                logger.info("[watcher] Game ended, running analysis...")
                 await run_post_game_analysis()
             was_in_game = in_game
         except Exception as e:
-            print(f"[watcher] Unexpected error: {e}")
+            logger.error("[watcher] Unexpected error: %s", e)
         await asyncio.sleep(5)
 
 
@@ -115,7 +118,7 @@ async def run_post_game_analysis():
         set_pending_popup(db, match_id=match_id)
         await _generate_and_store_focus_card()
     except Exception as e:
-        print(f"[watcher] Error during post-game analysis: {e}")
+        logger.error("[watcher] Error during post-game analysis: %s", e)
 
 
 @asynccontextmanager
@@ -514,7 +517,7 @@ async def reanalyze_all():
             ])
             reanalyzed += 1
         except Exception as e:
-            print(f"[reanalyze] Error for {match.match_id}: {e}")
+            logger.error("[reanalyze] Error for %s: %s", match.match_id, e)
             errors.append({"match_id": match.match_id, "error": str(e)})
     return {"ok": True, "reanalyzed": reanalyzed, "errors": errors}
 
