@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import { initRendererLogForwarding } from '../shared/log'
+import { OfflineBanner } from './OfflineBanner'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { Setup } from './Setup'
@@ -74,6 +75,7 @@ function ChatApp() {
   const [focusCard, setFocusCard] = useState<FocusCardData | null>(null)
   const [backfilling, setBackfilling] = useState(false)
   const [matchups, setMatchups] = useState<MatchupEntry[]>([])
+  const [analystOffline, setAnalystOffline] = useState(false)
 
   const port = window.sidecar?.port ?? '8765'
 
@@ -111,10 +113,13 @@ function ChatApp() {
 
   useEffect(() => {
     if (isSetup !== true) return
+    let fails = 0
     const check = () => {
       fetch(`http://localhost:${port}/status`)
         .then(r => r.ok ? r.json() : null)
         .then((data: { backfill_running?: boolean } | null) => {
+          fails = 0
+          setAnalystOffline(false)
           const running = data?.backfill_running ?? false
           setBackfilling(running)
           if (!running) {
@@ -132,7 +137,10 @@ function ChatApp() {
               .catch(() => {})
           }
         })
-        .catch(() => {})
+        .catch(() => {
+          fails += 1
+          if (fails >= 2) setAnalystOffline(true)
+        })
     }
     check()
     const id = setInterval(check, 4000)
@@ -224,6 +232,8 @@ function ChatApp() {
           <span className="text-xs text-blue-400 ml-auto">Viewing specific game</span>
         )}
       </div>
+
+      <OfflineBanner offline={analystOffline} />
 
       {/* History tab */}
       {tab === 'history' && selectedMatchId === null && (
