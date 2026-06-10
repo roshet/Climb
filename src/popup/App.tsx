@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { initRendererLogForwarding } from '../shared/log'
 import { MomentCard } from './MomentCard'
 import { POSITIVE_TYPES } from './constants'
 import '../index.css'
@@ -240,4 +241,5 @@ function PopupApp() {
   )
 }
 
+initRendererLogForwarding()
 createRoot(document.getElementById('root')!).render(<PopupApp />)

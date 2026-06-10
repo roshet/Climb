@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
+import { initRendererLogForwarding } from '../shared/log'
 import {
   ChampSelectPattern as Pattern,
   ChampSelectFocus as Focus,
@@ -140,4 +141,5 @@ function ChampSelectApp() {
   )
 }
 
+initRendererLogForwarding()
 createRoot(document.getElementById('root')!).render(<ChampSelectApp />)

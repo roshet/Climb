@@ -1,24 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
-
-declare global {
-  interface Window {
-    electron: {
-      setupComplete: (data: SetupData) => void
-      getConfig: () => Promise<SetupData | null>
-      onSetupError: (cb: (error: string) => void) => void
-    }
-  }
-}
-
-interface SetupData {
-  riotApiKey: string
-  geminiApiKey: string
-  summonerName: string
-  tagLine: string
-  region: string
-}
+import { initRendererLogForwarding } from '../shared/log'
 
 const REGIONS = ['NA1', 'EUW1', 'EUN1', 'KR', 'BR1', 'LA1', 'LA2', 'OC1', 'TR1', 'JP1']
 
@@ -128,4 +111,5 @@ function SetupApp() {
   )
 }
 
+initRendererLogForwarding()
 createRoot(document.getElementById('root')!).render(<SetupApp />)

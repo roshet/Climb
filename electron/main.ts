@@ -52,6 +52,34 @@ function saveConfig(config: Config): void {
   fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2))
 }
 
+// --- Logging ---
+// Central logfile for the Electron main process: its own lifecycle events,
+// captured sidecar stdout/stderr, and errors forwarded from renderer windows.
+// The Python sidecar writes its own logs/sidecar.log alongside this file.
+
+const LOG_DIR = path.join(app.getPath('userData'), 'logs')
+const MAIN_LOG = path.join(LOG_DIR, 'main.log')
+const LOG_MAX_BYTES = 1_000_000
+
+function logToFile(line: string): void {
+  try {
+    if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true })
+    // Size-based rotation: keep one previous file (main.log.1).
+    try {
+      if (fs.statSync(MAIN_LOG).size > LOG_MAX_BYTES) {
+        fs.renameSync(MAIN_LOG, `${MAIN_LOG}.1`)
+      }
+    } catch { /* no existing logfile yet */ }
+    const ts = new Date().toISOString()
+    fs.appendFileSync(MAIN_LOG, `${ts} ${line}\n`)
+  } catch { /* never let logging crash the app */ }
+}
+
+function log(line: string): void {
+  console.log(line)
+  logToFile(line)
+}
+
 // --- Sidecar Management ---
 
 function killPortProcess(port: string) {
@@ -91,14 +119,15 @@ function startSidecar(config: Config) {
       GEMINI_API_KEY: config.geminiApiKey,
       REGION: config.region,
       DB_PATH: dbPath,
+      LOG_DIR: app.getPath('userData'),
     },
   })
 
-  sidecarProcess.stdout?.on('data', (d: Buffer) => console.log('[sidecar]', d.toString().trim()))
-  sidecarProcess.stderr?.on('data', (d: Buffer) => console.error('[sidecar]', d.toString().trim()))
+  sidecarProcess.stdout?.on('data', (d: Buffer) => log(`[sidecar] ${d.toString().trim()}`))
+  sidecarProcess.stderr?.on('data', (d: Buffer) => log(`[sidecar] ${d.toString().trim()}`))
   sidecarProcess.on('close', (code) => {
     if (!_isQuitting && _lastConfig) {
-      console.log(`[sidecar] exited with code ${code}, restarting in 3s...`)
+      log(`[sidecar] exited with code ${code}, restarting in 3s...`)
       setTimeout(() => startSidecar(_lastConfig!), 3000)
     }
   })
@@ -324,6 +353,10 @@ async function pollStatus() {
 // --- IPC Handlers ---
 
 ipcMain.handle('get-config', () => loadConfig())
+
+ipcMain.on('log-message', (_event, level: string, message: string) => {
+  logToFile(`[renderer:${level}] ${message}`)
+})
 
 ipcMain.on('setup-complete', async (_event, data: Config) => {
   saveConfig(data)

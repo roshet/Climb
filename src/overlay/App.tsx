@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
+import { initRendererLogForwarding } from '../shared/log'
 import { Alert } from '../shared/types'
 import { getJson } from '../shared/api'
 import { POLL_INTERVAL } from '../shared/constants'
@@ -86,4 +87,5 @@ function OverlayApp() {
   )
 }
 
+initRendererLogForwarding()
 createRoot(document.getElementById('root')!).render(<OverlayApp />)

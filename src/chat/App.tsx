@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
+import { initRendererLogForwarding } from '../shared/log'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { Setup } from './Setup'
@@ -324,4 +325,5 @@ function ChatApp() {
   )
 }
 
+initRendererLogForwarding()
 createRoot(document.getElementById('root')!).render(<ChatApp />)

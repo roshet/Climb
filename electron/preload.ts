@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('electron', {
   onSetupError: (cb: (error: string) => void) => {
     ipcRenderer.once('setup-error', (_e, error: string) => cb(error))
   },
+  log: (level: string, message: string) => ipcRenderer.send('log-message', level, message),
 })
