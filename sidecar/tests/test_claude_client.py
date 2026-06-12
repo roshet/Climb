@@ -48,6 +48,24 @@ def test_claude_client_formats_tool_result_get_champion_stats():
     assert "win" in result.lower() or "1" in result
 
 
+def test_validate_key_accepts_working_key():
+    db = MagicMock()
+    with patch("claude_client.genai.Client"):
+        client = ClaudeClient(api_key="test", db=db)
+    client.client.models.list.return_value = iter([MagicMock()])
+    # Should not raise.
+    client.validate_key()
+
+
+def test_validate_key_rejects_bad_key():
+    db = MagicMock()
+    with patch("claude_client.genai.Client"):
+        client = ClaudeClient(api_key="bad", db=db)
+    client.client.models.list.side_effect = Exception("401 Unauthorized")
+    with pytest.raises(ValueError, match="Invalid Gemini API key"):
+        client.validate_key()
+
+
 from unittest.mock import patch
 from timeline_analyzer import PivotalMomentData
 from pattern_detector import PatternResult

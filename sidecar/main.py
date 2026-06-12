@@ -444,6 +444,11 @@ class SetupRequest(BaseModel):
 
 @app.post("/setup")
 async def setup(req: SetupRequest):
+    try:
+        claude.validate_key()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     riot.region = req.region
     riot.regional = REGIONAL_ROUTING.get(req.region, "americas")
     try:

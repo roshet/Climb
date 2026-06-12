@@ -188,6 +188,16 @@ class ClaudeClient:
         self.model_name = "gemini-2.5-flash"
         self.db = db
 
+    def validate_key(self) -> None:
+        """Verify the configured Gemini API key with a lightweight authenticated
+        call. Raises ValueError if the key is missing or rejected so callers can
+        surface a clear error instead of failing later mid-chat."""
+        try:
+            # Listing models authenticates without spending generation tokens.
+            next(iter(self.client.models.list()), None)
+        except Exception as e:
+            raise ValueError("Invalid Gemini API key") from e
+
     def _handle_tool(self, tool_name: str, tool_input: dict) -> str:
         if tool_name == "get_matches":
             matches = get_matches(
