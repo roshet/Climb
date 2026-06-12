@@ -17,6 +17,7 @@ declare global {
       setupComplete: (data: SidecarConfig) => void
       getConfig: () => Promise<SidecarConfig | null>
       onSetupError: (cb: (error: string) => void) => void
+      onSetupSaved: (cb: () => void) => void
       log: (level: string, message: string) => void
     }
   }

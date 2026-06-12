@@ -14,6 +14,7 @@ let chatWindow: BrowserWindow | null = null
 let popupWindow: BrowserWindow | null = null
 let setupWindow: BrowserWindow | null = null
 let sidecarProcess: ChildProcess | null = null
+let _restartTimer: ReturnType<typeof setTimeout> | null = null
 let statusPollInterval: ReturnType<typeof setInterval> | null = null
 let overlayWindow: BrowserWindow | null = null
 let _wasInGame = false
@@ -50,6 +51,14 @@ function saveConfig(config: Config): void {
   const dir = app.getPath('userData')
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2))
+}
+
+function configEqual(a: Config, b: Config): boolean {
+  return a.riotApiKey === b.riotApiKey
+    && a.geminiApiKey === b.geminiApiKey
+    && a.summonerName === b.summonerName
+    && a.tagLine === b.tagLine
+    && a.region === b.region
 }
 
 // --- Logging ---
@@ -98,6 +107,13 @@ function killPortProcess(port: string) {
 
 function startSidecar(config: Config) {
   _lastConfig = config
+  // Any pending crash-restart is superseded by this start: cancel it so restart
+  // timers can't accumulate and race two uvicorns onto the same port.
+  if (_restartTimer) { clearTimeout(_restartTimer); _restartTimer = null }
+  // Detach the previous process's restart listener before killPortProcess()
+  // force-kills it below — otherwise its 'close' fires and schedules a phantom
+  // restart that collides on the port with the sidecar we're about to start.
+  if (sidecarProcess) { sidecarProcess.removeAllListeners('close'); sidecarProcess = null }
   killPortProcess(SIDECAR_PORT)
   const pythonPath = isDev
     ? path.join(__dirname, '..', '..', 'sidecar', 'venv', 'Scripts', 'python.exe')
@@ -128,13 +144,19 @@ function startSidecar(config: Config) {
   sidecarProcess.on('close', (code) => {
     if (!_isQuitting && _lastConfig) {
       log(`[sidecar] exited with code ${code}, restarting in 3s...`)
-      setTimeout(() => startSidecar(_lastConfig!), 3000)
+      _restartTimer = setTimeout(() => startSidecar(_lastConfig!), 3000)
     }
   })
 }
 
 function stopSidecar() {
+  // Cancel any pending crash-restart: this is an intentional stop.
+  if (_restartTimer) { clearTimeout(_restartTimer); _restartTimer = null }
   if (sidecarProcess) {
+    // Detach the crash-restart handler first: the dying process must NOT
+    // schedule a 3s auto-restart that would collide on the port with the
+    // sidecar we're about to (re)start.
+    sidecarProcess.removeAllListeners('close')
     sidecarProcess.kill()
     sidecarProcess = null
   }
@@ -183,6 +205,7 @@ function createChatWindow(matchId?: string) {
 
 function createSetupWindow() {
   if (setupWindow) { setupWindow.focus(); return }
+  const isSettings = loadConfig() !== null
   setupWindow = new BrowserWindow({
     width: 420,
     height: 580,
@@ -191,9 +214,12 @@ function createSetupWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
     },
-    title: 'Climb Setup',
+    title: isSettings ? 'Settings' : 'Climb Setup',
     backgroundColor: '#1a1a2e',
   })
+  // The window's static HTML <title> would otherwise override the title set
+  // above; keep our mode-aware title (Settings vs Climb Setup) instead.
+  setupWindow.on('page-title-updated', (e) => e.preventDefault())
   const url = isDev
     ? 'http://localhost:5173/setup/index.html'
     : `file://${path.join(__dirname, '../renderer/setup/index.html')}`
@@ -359,46 +385,66 @@ ipcMain.on('log-message', (_event, level: string, message: string) => {
 })
 
 ipcMain.on('setup-complete', async (_event, data: Config) => {
-  saveConfig(data)
+  const existing = loadConfig()
+  const firstRun = existing === null
+
+  // Settings save with no actual changes: confirm without restarting the
+  // sidecar, so opening Settings and hitting Save never interrupts a live game.
+  if (!firstRun && existing && configEqual(existing, data)) {
+    setupWindow?.webContents.send('setup-saved')
+    return
+  }
+
+  // Validate the new config against a sidecar running with the new keys, but
+  // don't persist it (or tear down a working analyst) until validation passes.
   stopSidecar()
   startSidecar(data)
 
-  const ready = await waitForSidecar()
-  if (!ready) {
-    setupWindow?.webContents.send('setup-error', 'Sidecar failed to start. Check your API keys.')
-    stopSidecar()
-    return
-  }
-
-  try {
-    const res = await fetch(`${SIDECAR_URL}/setup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        summoner_name: data.summonerName,
-        tag_line: data.tagLine,
-        region: data.region,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.json() as { detail: string }
-      setupWindow?.webContents.send('setup-error', err.detail || 'Summoner not found.')
-      stopSidecar()
-      return
+  let errorMsg: string | null = null
+  if (!(await waitForSidecar())) {
+    errorMsg = 'Sidecar failed to start. Check your API keys.'
+  } else {
+    try {
+      const res = await fetch(`${SIDECAR_URL}/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summoner_name: data.summonerName,
+          tag_line: data.tagLine,
+          region: data.region,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json() as { detail: string }
+        errorMsg = err.detail || 'Summoner not found.'
+      }
+    } catch {
+      errorMsg = 'Could not connect to sidecar.'
     }
-  } catch {
-    setupWindow?.webContents.send('setup-error', 'Could not connect to sidecar.')
+  }
+
+  if (errorMsg) {
+    setupWindow?.webContents.send('setup-error', errorMsg)
+    // Roll back to the previously-working analyst, if there was one.
     stopSidecar()
+    if (existing) startSidecar(existing)
     return
   }
 
+  saveConfig(data)
   app.setLoginItemSettings({ openAtLogin: true })
-  setupWindow?.close()
-  createChatWindow()
 
-  if (statusPollInterval) clearInterval(statusPollInterval)
-  _wasInGame = false
-  statusPollInterval = setInterval(pollStatus, 5000)
+  if (firstRun) {
+    setupWindow?.close()
+    createChatWindow()
+
+    if (statusPollInterval) clearInterval(statusPollInterval)
+    _wasInGame = false
+    statusPollInterval = setInterval(pollStatus, 5000)
+  } else {
+    // Settings save: confirm in place instead of forcing focus into chat.
+    setupWindow?.webContents.send('setup-saved')
+  }
 })
 
 // --- Tray ---

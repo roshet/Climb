@@ -8,7 +8,10 @@ contextBridge.exposeInMainWorld('electron', {
   setupComplete: (data: object) => ipcRenderer.send('setup-complete', data),
   getConfig: () => ipcRenderer.invoke('get-config'),
   onSetupError: (cb: (error: string) => void) => {
-    ipcRenderer.once('setup-error', (_e, error: string) => cb(error))
+    ipcRenderer.on('setup-error', (_e, error: string) => cb(error))
+  },
+  onSetupSaved: (cb: () => void) => {
+    ipcRenderer.on('setup-saved', () => cb())
   },
   log: (level: string, message: string) => ipcRenderer.send('log-message', level, message),
 })
