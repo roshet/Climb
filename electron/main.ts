@@ -5,9 +5,20 @@ import fs from 'fs'
 
 app.setName('Climb')
 
+const isDev = !app.isPackaged
+
+// Dev isolation: give the dev build its own userData (config + logs) and sidecar
+// port so it never collides with an installed copy of Climb on the same machine.
+// Must run before the app is ready and before the single-instance lock, since both
+// key off the userData path. The env var is also read by preload.ts, so the
+// renderer talks to the same port.
+if (isDev) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'Climb-dev'))
+  if (!process.env.SIDECAR_PORT) process.env.SIDECAR_PORT = '8766'
+}
+
 const SIDECAR_PORT = process.env.SIDECAR_PORT || '8765'
 const SIDECAR_URL = `http://127.0.0.1:${SIDECAR_PORT}`
-const isDev = !app.isPackaged
 
 let tray: Tray | null = null
 let chatWindow: BrowserWindow | null = null
@@ -478,19 +489,39 @@ function createTray() {
 
 // --- App Lifecycle ---
 
-app.whenReady().then(() => {
-  createTray()
-  const config = loadConfig()
-  if (!config) {
-    createSetupWindow()
-  } else {
-    startSidecar(config)
-    createChatWindow()
-    setTimeout(() => {
-      statusPollInterval = setInterval(pollStatus, 5000)
-    }, 3000)
-  }
-})
+// Refuse to start a second copy of Climb: two instances would fight over the
+// sidecar port (each startSidecar() force-kills whatever holds it, so they'd
+// kill each other's sidecar in a loop). The dev build uses a separate userData
+// path (above), giving it its own lock domain, so it can still run alongside an
+// installed copy.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    // Another launch was attempted; surface the existing window instead.
+    const win = chatWindow ?? setupWindow
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+    } else {
+      createChatWindow()
+    }
+  })
+
+  app.whenReady().then(() => {
+    createTray()
+    const config = loadConfig()
+    if (!config) {
+      createSetupWindow()
+    } else {
+      startSidecar(config)
+      createChatWindow()
+      setTimeout(() => {
+        statusPollInterval = setInterval(pollStatus, 5000)
+      }, 3000)
+    }
+  })
+}
 
 app.on('window-all-closed', (e: Event) => {
   e.preventDefault()
