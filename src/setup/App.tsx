@@ -124,7 +124,7 @@ function SetupApp() {
         </div>
 
         <select
-          className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none"
+          className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none [color-scheme:dark]"
           value={region}
           onChange={e => { setRegion(e.target.value); dirty() }}
         >

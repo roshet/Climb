@@ -58,12 +58,12 @@ export function Setup({ onComplete }: SetupProps) {
         </div>
 
         <select
-          className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none"
+          className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none [color-scheme:dark]"
           value={region}
           onChange={e => setRegion(e.target.value)}
         >
           {['NA1','EUW1','EUNE1','KR','BR1','LAN','LAS','OC1','TR1','RU','JP1'].map(r => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r} className="bg-[#1a1a2e] text-white">{r}</option>
           ))}
         </select>
 
