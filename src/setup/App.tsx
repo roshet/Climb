@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client'
 import '../index.css'
 import { initRendererLogForwarding } from '../shared/log'
 
-const REGIONS = ['NA1', 'EUW1', 'EUN1', 'KR', 'BR1', 'LA1', 'LA2', 'OC1', 'TR1', 'JP1']
+// Values must match REGIONAL_ROUTING keys in sidecar/riot_client.py — any value not
+// in that map silently falls through to the "americas" routing cluster.
+const REGIONS = ['NA1', 'EUW1', 'EUNE1', 'KR', 'BR1', 'LAN', 'LAS', 'OC1', 'TR1', 'RU', 'JP1']
 
 function SetupApp() {
   const [riotApiKey, setRiotApiKey] = useState('')
