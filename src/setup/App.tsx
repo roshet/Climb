@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
 import { initRendererLogForwarding } from '../shared/log'
-
-// Values must match REGIONAL_ROUTING keys in sidecar/riot_client.py — any value not
-// in that map silently falls through to the "americas" routing cluster.
-const REGIONS = ['NA1', 'EUW1', 'EUNE1', 'KR', 'BR1', 'LAN', 'LAS', 'OC1', 'TR1', 'RU', 'JP1']
+import { RegionSelect } from '../shared/components/RegionSelect'
+import { RiotIdInput } from '../shared/components/RiotIdInput'
 
 function SetupApp() {
   const [riotApiKey, setRiotApiKey] = useState('')
@@ -106,30 +104,15 @@ function SetupApp() {
 
         <div>
           <label className="text-gray-500 text-[10px] uppercase tracking-wide mb-1 block">Riot ID</label>
-          <div className="flex gap-2">
-            <input
-              className="flex-1 bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none placeholder-gray-500"
-              placeholder="Game Name"
-              value={summonerName}
-              onChange={e => { setSummonerName(e.target.value); dirty() }}
-            />
-            <span className="text-gray-500 self-center">#</span>
-            <input
-              className="w-20 bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none placeholder-gray-500"
-              placeholder="TAG"
-              value={tagLine}
-              onChange={e => { setTagLine(e.target.value); dirty() }}
-            />
-          </div>
+          <RiotIdInput
+            gameName={summonerName}
+            tagLine={tagLine}
+            onGameNameChange={v => { setSummonerName(v); dirty() }}
+            onTagLineChange={v => { setTagLine(v); dirty() }}
+          />
         </div>
 
-        <select
-          className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 outline-none [color-scheme:dark]"
-          value={region}
-          onChange={e => { setRegion(e.target.value); dirty() }}
-        >
-          {REGIONS.map(r => <option key={r} value={r} className="bg-[#1a1a2e] text-white">{r}</option>)}
-        </select>
+        <RegionSelect value={region} onChange={v => { setRegion(v); dirty() }} />
 
         {error && <p className="text-red-400 text-xs">{error}</p>}
         {saved && !error && <p className="text-green-400 text-xs">Saved ✓</p>}
