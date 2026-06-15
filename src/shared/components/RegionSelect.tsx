@@ -1,6 +1,6 @@
 // Values must match REGIONAL_ROUTING keys in sidecar/riot_client.py — any value not
 // in that map silently falls through to the "americas" routing cluster.
-const REGIONS = ['NA1', 'EUW1', 'EUNE1', 'KR', 'BR1', 'LAN', 'LAS', 'OC1', 'TR1', 'RU', 'JP1']
+const REGIONS = ['NA1', 'EUW1', 'EUNE1', 'KR', 'BR1', 'LAN', 'LAS', 'OC1', 'PH2', 'SG2', 'TH2', 'TW2', 'VN2', 'TR1', 'RU', 'JP1']
 
 interface RegionSelectProps {
   value: string

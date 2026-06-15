@@ -3,9 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { RegionSelect } from './RegionSelect'
 
 describe('RegionSelect', () => {
-  const ALL = ['NA1', 'EUW1', 'EUNE1', 'KR', 'BR1', 'LAN', 'LAS', 'OC1', 'TR1', 'RU', 'JP1']
+  const ALL = ['NA1', 'EUW1', 'EUNE1', 'KR', 'BR1', 'LAN', 'LAS', 'OC1', 'PH2', 'SG2', 'TH2', 'TW2', 'VN2', 'TR1', 'RU', 'JP1']
 
-  it('renders all 11 region options matching the routing map keys', () => {
+  it('renders all 16 region options matching the routing map keys', () => {
     render(<RegionSelect value="NA1" onChange={() => {}} />)
     for (const r of ALL) {
       expect(screen.getByRole('option', { name: r })).toBeInTheDocument()
