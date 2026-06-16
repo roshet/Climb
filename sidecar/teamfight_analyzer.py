@@ -1,4 +1,4 @@
-from timeline_analyzer import PivotalMomentData, TEAM_100_IDS, TEAM_200_IDS
+from timeline_analyzer import PivotalMomentData, _player_team
 
 KILL_GROUP_GAP_SECS = 20   # kills within this gap join the same fight
 MIN_FIGHT_KILLS = 3        # a cluster needs at least this many kills to be a "team fight"
@@ -8,11 +8,7 @@ OBJECTIVE_GOLD = {"BARON_NASHOR": 900, "DRAGON": 350, "RIFTHERALD": 400}
 OBJECTIVE_LABEL = {"BARON_NASHOR": "Baron", "DRAGON": "Dragon", "RIFTHERALD": "Herald"}
 
 
-def _player_team_ids(participant_id: int) -> set[int]:
-    return TEAM_100_IDS if participant_id in TEAM_100_IDS else TEAM_200_IDS
-
-
-def _collect(timeline: dict):
+def _collect(timeline: dict) -> tuple[list[dict], list[dict]]:
     kills, objectives = [], []
     for frame in timeline.get("info", {}).get("frames", []):
         for event in frame.get("events", []):
@@ -69,7 +65,7 @@ def _objective_in_window(objectives: list[dict], start_ms: int, end_ms: int) -> 
 
 def analyze_teamfights(timeline: dict, participant_id: int) -> list[PivotalMomentData]:
     kills, objectives = _collect(timeline)
-    player_team = _player_team_ids(participant_id)
+    player_team = _player_team(participant_id)
     moments: list[PivotalMomentData] = []
 
     for cluster in _cluster(kills):

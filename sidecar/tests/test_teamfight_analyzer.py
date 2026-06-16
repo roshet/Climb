@@ -68,14 +68,22 @@ def test_kills_far_apart_are_separate_clusters():
 def test_player_involvement_reported():
     tl = _timeline([_kill(600, 1, 6), _kill(605, 2, 7, assists=[1]), _kill(610, 8, 1)])
     # player got 1 kill, 1 assist, and died -> still a 2-for-1 win
-    desc = analyze_teamfights(tl, participant_id=1)[0].description
-    assert "kill" in desc and "died" in desc
+    moment = analyze_teamfights(tl, participant_id=1)[0]
+    assert moment.moment_type == "teamfight_won"
+    assert "kill" in moment.description
+    assert "assist" in moment.description
+    assert "died" in moment.description
 
 
 def test_player_not_involved_reported():
     tl = _timeline([_kill(600, 2, 6), _kill(605, 3, 7), _kill(610, 4, 8)])
     desc = analyze_teamfights(tl, participant_id=1)[0].description
     assert "weren't involved" in desc
+
+
+def test_empty_timeline_returns_no_moments():
+    assert analyze_teamfights({}, participant_id=1) == []
+    assert analyze_teamfights(_timeline([]), participant_id=1) == []
 
 
 def test_objective_in_window_annotated():
