@@ -238,3 +238,19 @@ def test_analyze_timeline_generic_path_still_works_for_unknown():
     ]}}
     result = analyze_timeline(timeline, participant_id=1, role="UNKNOWN")
     assert any(m.moment_type == "death" for m in result)
+
+def test_analyze_timeline_includes_teamfight_moments():
+    from timeline_analyzer import analyze_timeline
+    # 3 enemy deaths in a cluster -> one teamfight_won moment, merged into output
+    timeline = {"info": {"frames": [{"events": [
+        {"type": "CHAMPION_KILL", "timestamp": 600000, "killerId": 1, "victimId": 6,
+         "assistingParticipantIds": [], "position": {"x": 0, "y": 0}},
+        {"type": "CHAMPION_KILL", "timestamp": 605000, "killerId": 2, "victimId": 7,
+         "assistingParticipantIds": [], "position": {"x": 0, "y": 0}},
+        {"type": "CHAMPION_KILL", "timestamp": 610000, "killerId": 3, "victimId": 8,
+         "assistingParticipantIds": [], "position": {"x": 0, "y": 0}},
+    ]}]}}
+    moments = analyze_timeline(timeline, participant_id=1, role="UNKNOWN")
+    assert any(m.moment_type == "teamfight_won" for m in moments)
+    # output stays sorted by timestamp
+    assert [m.timestamp_secs for m in moments] == sorted(m.timestamp_secs for m in moments)

@@ -226,31 +226,31 @@ def analyze_timeline(
 ) -> list[PivotalMomentData]:
     if role == "JUNGLE":
         from jungle_analyzer import analyze_jungle
-        return analyze_jungle(timeline, participant_id, enemy_jungler_id)
-
-    if role in ("TOP", "MIDDLE", "BOTTOM", "UTILITY"):
+        moments = analyze_jungle(timeline, participant_id, enemy_jungler_id)
+    elif role in ("TOP", "MIDDLE", "BOTTOM", "UTILITY"):
         from laner_analyzer import analyze_laner
-        return analyze_laner(timeline, participant_id, lane_opponent_id, role, enemy_jungler_id)
+        moments = analyze_laner(timeline, participant_id, lane_opponent_id, role, enemy_jungler_id)
+    else:
+        moments = []
+        frames = timeline.get("info", {}).get("frames", [])
+        for frame in frames:
+            for event in frame.get("events", []):
+                event_type = event.get("type")
+                moment = None
+                if event_type == "CHAMPION_KILL":
+                    death = _classify_death(event, participant_id, enemy_jungler_id)
+                    solo = _score_solo_kill(event, participant_id)
+                    moment = death or solo
+                elif event_type == "ELITE_MONSTER_KILL":
+                    missed = score_objective_missed(event, participant_id)
+                    secured = score_objective_secured(event, participant_id)
+                    moment = missed or secured
+                elif event_type == "BUILDING_KILL":
+                    moment = _score_tower(event, participant_id)
+                if moment:
+                    moments.append(moment)
 
-    moments: list[PivotalMomentData] = []
-    frames = timeline.get("info", {}).get("frames", [])
-
-    for frame in frames:
-        for event in frame.get("events", []):
-            event_type = event.get("type")
-            moment = None
-            if event_type == "CHAMPION_KILL":
-                death = _classify_death(event, participant_id, enemy_jungler_id)
-                solo = _score_solo_kill(event, participant_id)
-                moment = death or solo
-            elif event_type == "ELITE_MONSTER_KILL":
-                missed = score_objective_missed(event, participant_id)
-                secured = score_objective_secured(event, participant_id)
-                moment = missed or secured
-            elif event_type == "BUILDING_KILL":
-                moment = _score_tower(event, participant_id)
-            if moment:
-                moments.append(moment)
-
+    from teamfight_analyzer import analyze_teamfights
+    moments = list(moments) + analyze_teamfights(timeline, participant_id)
     moments.sort(key=lambda m: m.timestamp_secs)
     return moments
