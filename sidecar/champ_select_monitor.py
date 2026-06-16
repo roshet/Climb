@@ -35,11 +35,13 @@ MOMENT_LABELS: dict[str, str] = {
     "ward_kill": "Vision Control",
     "bad_back_objective": "Bad Backs (Objective)",
     "bad_back_gold": "Bad Backs (Low Gold)",
+    "teamfight_won": "Team Fights Won",
+    "teamfight_lost": "Team Fights Lost",
 }
 
 POSITIVE_TYPES = {
     "solo_kill", "objective_secured", "gank_assist", "baron_secured",
-    "dragon_stack", "roam_kill", "roam_assist", "ward_kill",
+    "dragon_stack", "roam_kill", "roam_assist", "ward_kill", "teamfight_won",
 }
 
 

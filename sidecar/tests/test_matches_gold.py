@@ -47,3 +47,26 @@ def test_matches_gold_lost_zero_when_no_moments(db):
     moments = get_pivotal_moments(db, ["m2"])
     gold_by_match = compute_gold_lost(moments)
     assert gold_by_match.get("m2", 0) == 0
+
+
+def test_teamfight_won_not_counted_as_gold_lost(db):
+    from champ_select_monitor import POSITIVE_TYPES
+
+    def gold_lost_by_type(moments):
+        result: dict[str, int] = {}
+        for m in moments:
+            if m.moment_type not in POSITIVE_TYPES:
+                result[m.match_id] = result.get(m.match_id, 0) + abs(m.gold_impact)
+        return result
+
+    make_match(db, "m_tf", day=3)
+    save_pivotal_moments(db, "m_tf", [
+        {"timestamp_secs": 600, "moment_type": "teamfight_won",
+         "description": "", "counterfactual": "", "gold_impact": 900},
+        {"timestamp_secs": 700, "moment_type": "teamfight_lost",
+         "description": "", "counterfactual": "", "gold_impact": 600},
+    ])
+    moments = get_pivotal_moments(db, ["m_tf"])
+    gold = gold_lost_by_type(moments)
+    # teamfight_won must be excluded (it's positive); only the lost fight counts
+    assert gold.get("m_tf", 0) == 600
