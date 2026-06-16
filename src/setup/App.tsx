@@ -112,7 +112,10 @@ function SetupApp() {
           />
         </div>
 
-        <RegionSelect value={region} onChange={v => { setRegion(v); dirty() }} />
+        <div>
+          <label className="text-gray-500 text-[10px] uppercase tracking-wide mb-1 block">Region</label>
+          <RegionSelect value={region} onChange={v => { setRegion(v); dirty() }} />
+        </div>
 
         {error && <p className="text-red-400 text-xs">{error}</p>}
         {saved && !error && <p className="text-green-400 text-xs">Saved ✓</p>}
