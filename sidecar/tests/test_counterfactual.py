@@ -107,3 +107,13 @@ def test_objective_missed_dragon_counterfactual():
     )]
     enriched = enrich_moments(moments)
     assert "dragon" in enriched[0].counterfactual.lower() or "soul" in enriched[0].counterfactual.lower()
+
+def test_teamfight_moments_get_specific_coaching():
+    from counterfactual import enrich_moments
+    from timeline_analyzer import PivotalMomentData
+    won = PivotalMomentData(620, "teamfight_won", "Your team won a 3-for-0 fight at 10:20 — you got 1 kill.", "", 900)
+    lost = PivotalMomentData(640, "teamfight_lost", "Your team lost a fight (0 for 3) at 10:40 — you died.", "", 900)
+    enrich_moments([won, lost])
+    assert "objective" in won.counterfactual.lower()
+    assert "fight" in lost.counterfactual.lower()
+    assert won.counterfactual != lost.counterfactual

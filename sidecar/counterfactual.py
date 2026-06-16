@@ -182,6 +182,19 @@ def enrich_moments(moments: list[PivotalMomentData]) -> list[PivotalMomentData]:
                 "Keep sweeping high-traffic corridors and the areas around upcoming objective "
                 "timers — vision denial before Dragon or Baron is especially impactful."
             )
+        elif moment.moment_type == "teamfight_won":
+            moment.counterfactual = (
+                "Your team won this fight — turning a numbers advantage into objectives is how "
+                "fight wins become game wins. After going up bodies, immediately take the nearest "
+                "Dragon, Baron, or tower while the enemy is dead and can't contest."
+            )
+        elif moment.moment_type == "teamfight_lost":
+            moment.counterfactual = (
+                "Your team lost this fight. Before committing to a 5v5, check that your team is "
+                "grouped, key abilities and summoners are up, and there's a reason to fight (an "
+                "objective or a pick). Forcing fights on even or unfavorable terms hands the enemy "
+                "tempo and objectives."
+            )
         elif not moment.counterfactual:
             moment.counterfactual = f"This event had an estimated ~{moment.gold_impact}g impact on the game outcome."
     return moments
