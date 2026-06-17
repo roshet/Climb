@@ -43,6 +43,8 @@ const MOMENT_LABELS: Record<string, string> = {
   ward_kill: 'Vision Control',
   bad_back_objective: 'Bad Backs (Objective)',
   bad_back_gold: 'Bad Backs (Low Gold)',
+  teamfight_won: 'Team Fights Won',
+  teamfight_lost: 'Team Fights Lost',
 }
 
 function buildSessionMessage(games: MatchRow[], isToday: boolean): string {
