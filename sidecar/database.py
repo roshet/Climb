@@ -62,6 +62,14 @@ class AppState(Base):
     value: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 
+class Goal(Base):
+    __tablename__ = "goals"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    metric: Mapped[str] = mapped_column(String)
+    target: Mapped[float] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 def init_db(db_path: str = "analyst.db") -> Engine:
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
@@ -134,6 +142,25 @@ def save_player(db: Session, summoner_name: str, puuid: str, region: str) -> Non
 
 def get_player(db: Session) -> Optional[Player]:
     return db.query(Player).first()
+
+
+# --- Goal queries ---
+
+def create_goal(db: Session, metric: str, target: float) -> Goal:
+    goal = Goal(metric=metric, target=target)
+    db.add(goal)
+    db.commit()
+    db.refresh(goal)
+    return goal
+
+
+def get_goals(db: Session) -> list[Goal]:
+    return db.query(Goal).order_by(Goal.created_at).all()
+
+
+def delete_goal(db: Session, goal_id: int) -> None:
+    db.query(Goal).filter(Goal.id == goal_id).delete()
+    db.commit()
 
 
 # --- Popup flag ---
