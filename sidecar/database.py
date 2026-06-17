@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import create_engine, String, Integer, DateTime, JSON, ForeignKey, Text, Engine, text
+from sqlalchemy import create_engine, String, Integer, Float, DateTime, JSON, ForeignKey, Text, Engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session, relationship
 
 
@@ -66,7 +66,7 @@ class Goal(Base):
     __tablename__ = "goals"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     metric: Mapped[str] = mapped_column(String)
-    target: Mapped[float] = mapped_column()
+    target: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
