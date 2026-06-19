@@ -48,3 +48,14 @@ export async function postJson<T>(path: string, body: unknown): Promise<T | null
     return null
   }
 }
+
+/** DELETE a sidecar resource. Returns `null` on network error or non-OK status. */
+export async function delJson<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(sidecarUrl(path), { method: 'DELETE' })
+    if (!res.ok) return null
+    return (await res.json()) as T
+  } catch {
+    return null
+  }
+}

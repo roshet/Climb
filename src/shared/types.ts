@@ -57,6 +57,27 @@ export interface FocusCardData {
   trend?: 'improving' | 'regressing' | null
 }
 
+/** A selectable goal metric from `GET /goals/metrics` (the single source of truth). */
+export interface GoalMetricInfo {
+  key: string
+  label: string
+  comparison: 'gte' | 'lte'
+  is_float: boolean
+}
+
+/** A goal with its live-computed streak/history, from `GET /goals` and `POST /goals`. */
+export interface Goal {
+  id: number
+  metric: string
+  label: string
+  comparison: 'gte' | 'lte'
+  target: number
+  streak: number
+  history: boolean[]
+  last_game_met: boolean | null
+  games_evaluated: number
+}
+
 /** Subset of `/focus` used by the post-game popup. */
 export type FocusResult = Pick<
   FocusCardData,

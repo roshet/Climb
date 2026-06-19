@@ -9,12 +9,13 @@ import { HistoryList } from './HistoryList'
 import { GameDetail } from './GameDetail'
 import { TrendChart } from './TrendChart'
 import { FocusCard, FocusCardData } from './FocusCard'
+import { GoalsPanel } from './GoalsPanel'
 import { MatchRow } from './types'
 import { Message, Pattern, MatchupEntry } from '../shared/types'
 import { getJson, postJson } from '../shared/api'
 import '../index.css'
 
-type Tab = 'chat' | 'history'
+type Tab = 'chat' | 'history' | 'goals'
 
 const SESSION_ID = `session-${Date.now()}`
 
@@ -218,7 +219,7 @@ function ChatApp() {
       <div className="border-b border-white/10 px-4 py-3 flex items-center gap-4 flex-shrink-0">
         <h1 className="font-bold text-base">Climb</h1>
         <div className="flex gap-1">
-          {(['chat', 'history'] as Tab[]).map(t => (
+          {(['chat', 'history', 'goals'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => handleTabChange(t)}
@@ -333,6 +334,9 @@ function ChatApp() {
           <InputBar onSend={sendMessage} disabled={loading} />
         </>
       )}
+
+      {/* Goals tab */}
+      {tab === 'goals' && <GoalsPanel />}
     </div>
   )
 }
