@@ -19,10 +19,13 @@ from claude_client import ClaudeClient
 from database import (
     AppState,
     PivotalMoment,
-    clear_pending_popup, delete_pivotal_moments, get_chat_history, get_matches,
+    clear_pending_popup, create_goal, delete_goal, delete_pivotal_moments,
+    get_chat_history, get_goals, get_matches,
     get_pending_popup, get_pivotal_moments, get_player, init_db, save_chat_message,
     save_pivotal_moments, save_player, set_pending_popup,
 )
+from goal_metrics import METRICS, metric_catalog
+from goal_tracker import compute_goal_status
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
 from riot_client import RiotClient, REGIONAL_ROUTING
 from live_game_monitor import LiveGameMonitor
@@ -339,6 +342,49 @@ def get_focus():
         "history": history,
         "trend": trend,
     }
+
+
+class GoalRequest(BaseModel):
+    metric: str
+    target: float
+
+
+def _goal_dict(goal) -> dict:
+    metric = METRICS[goal.metric]
+    return {
+        "id": goal.id,
+        "metric": goal.metric,
+        "label": metric.label,
+        "comparison": metric.comparison,
+        "target": goal.target,
+        **compute_goal_status(db, goal),
+    }
+
+
+@app.get("/goals/metrics")
+def goal_metrics():
+    return metric_catalog()
+
+
+@app.get("/goals")
+def list_goals():
+    return [_goal_dict(g) for g in get_goals(db)]
+
+
+@app.post("/goals")
+def add_goal(req: GoalRequest):
+    if req.metric not in METRICS:
+        raise HTTPException(status_code=400, detail=f"Unknown metric: {req.metric}")
+    if req.target <= 0:
+        raise HTTPException(status_code=400, detail="Target must be positive")
+    goal = create_goal(db, metric=req.metric, target=req.target)
+    return _goal_dict(goal)
+
+
+@app.delete("/goals/{goal_id}")
+def remove_goal(goal_id: int):
+    delete_goal(db, goal_id)
+    return {"ok": True}
 
 
 @app.get("/player")
