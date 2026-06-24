@@ -78,6 +78,26 @@ export interface Goal {
   games_evaluated: number
 }
 
+/** One metric row from `GET /benchmarks`. */
+export interface BenchmarkMetric {
+  metric_key: string
+  label: string
+  comparison: 'gte' | 'lte'
+  your_avg: number | null
+  tier_avg: number | null
+  sample_count: number
+}
+
+/** `GET /benchmarks` payload: your recent averages vs the target tier's. */
+export interface BenchmarkResponse {
+  user_tier: string | null
+  target_tier: string | null
+  role: string | null
+  status: 'ready' | 'harvesting' | 'stale' | 'none'
+  updated_at: string | null
+  metrics: BenchmarkMetric[]
+}
+
 /** Subset of `/focus` used by the post-game popup. */
 export type FocusResult = Pick<
   FocusCardData,

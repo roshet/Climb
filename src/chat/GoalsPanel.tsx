@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getJson, postJson, delJson } from '../shared/api'
-import type { Goal, GoalMetricInfo } from '../shared/types'
+import type { Goal, GoalMetricInfo, BenchmarkResponse, BenchmarkMetric } from '../shared/types'
 
 const COMPARISON_WORDS: Record<Goal['comparison'], string> = {
   lte: 'at most',
   gte: 'at least',
+}
+
+const titleCase = (s: string) => s.charAt(0) + s.slice(1).toLowerCase()
+
+/** Is the player's average on the good side of the tier benchmark? */
+function meetsTier(m: BenchmarkMetric): boolean | null {
+  if (m.your_avg === null || m.tier_avg === null) return null
+  return m.comparison === 'lte' ? m.your_avg <= m.tier_avg : m.your_avg >= m.tier_avg
 }
 
 export function GoalsPanel() {
@@ -12,6 +20,7 @@ export function GoalsPanel() {
   const [metrics, setMetrics] = useState<GoalMetricInfo[]>([])
   const [metric, setMetric] = useState('')
   const [target, setTarget] = useState('')
+  const [bench, setBench] = useState<BenchmarkResponse | null>(null)
 
   const refreshGoals = useCallback(async () => {
     const data = await getJson<Goal[]>('/goals')
@@ -26,6 +35,10 @@ export function GoalsPanel() {
       if (list.length > 0) setMetric(list[0].key)
     })
   }, [refreshGoals])
+
+  useEffect(() => {
+    getJson<BenchmarkResponse>('/benchmarks').then(d => setBench(d ?? null))
+  }, [])
 
   const handleAdd = useCallback(async () => {
     const value = parseFloat(target)
@@ -45,6 +58,44 @@ export function GoalsPanel() {
       <div className="text-[9px] font-bold tracking-wider text-indigo-400 mb-2">
         🎯 GOALS
       </div>
+
+      {bench && bench.status !== 'none' && (
+        <div className="mb-4 bg-[#1a1a3a] border border-indigo-500/40 rounded-lg px-3 py-2">
+          <div className="text-[10px] font-bold text-indigo-300 mb-2">
+            📊 Benchmarks vs {bench.target_tier ? titleCase(bench.target_tier) : ''}
+          </div>
+          {bench.status === 'harvesting' || bench.metrics.length === 0 ? (
+            <div className="text-gray-500 text-xs">Building your benchmarks…</div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {bench.metrics.map(m => {
+                const good = meetsTier(m)
+                return (
+                  <div
+                    key={m.metric_key}
+                    data-testid={`bench-${m.metric_key}`}
+                    className="flex items-center text-xs"
+                  >
+                    <span className="text-gray-300 w-24">{m.label}</span>
+                    <span
+                      className={
+                        good === null ? 'text-gray-400'
+                          : good ? 'text-green-400' : 'text-red-400'
+                      }
+                    >
+                      {m.your_avg ?? '—'}
+                    </span>
+                    <span className="text-gray-600 mx-1">vs</span>
+                    <span className="text-gray-300">
+                      {m.tier_avg ?? 'not enough data'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {goals.length === 0 ? (
         <div className="text-gray-500 text-xs mb-3">No goals yet — add one below.</div>
