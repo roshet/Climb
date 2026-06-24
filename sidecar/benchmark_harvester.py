@@ -63,6 +63,9 @@ async def run_harvest(riot, db, player) -> None:
     for puuid in seed_puuids:
         if fetches >= MATCH_FETCH_BUDGET:
             break
+        if await riot.is_in_game():
+            logger.info("[benchmark] game started mid-harvest; stopping early")
+            break
         try:
             match_ids = await riot.get_recent_match_ids(
                 puuid, count=MATCHES_PER_SEED, queue=RANKED_SOLO_QUEUE)

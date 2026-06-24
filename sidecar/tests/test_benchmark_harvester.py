@@ -99,6 +99,43 @@ async def test_run_harvest_skips_when_in_game(db, player):
 
 
 @pytest.mark.asyncio
+async def test_run_harvest_stops_mid_run_when_game_starts(db, player):
+    """Per-iteration is_in_game check: harvest stops after first seed when game begins."""
+    class MidRunGameRiot(FakeRiot):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self._is_in_game_calls = 0
+
+        async def is_in_game(self):
+            self._is_in_game_calls += 1
+            # First call: run-start check — no game yet
+            # Second call: first seed iteration — game has started
+            return self._is_in_game_calls >= 2
+
+        async def get_recent_match_ids(self, puuid, count=20, queue=None):
+            # Each seed has its own unique match id keyed by puuid
+            return [f"NA1_{puuid}"]
+
+    riot = MidRunGameRiot(
+        solo_rank="DIAMOND",
+        seed_puuids=["s1", "s2"],
+        matches={
+            "NA1_s1": _match("MIDDLE"),
+            "NA1_s2": _match("TOP"),
+        },
+    )
+    await bh.run_harvest(riot, db, player)
+
+    # The run was cut short: s1's match was never fetched (game detected before s1),
+    # so s2's match certainly was not fetched either.
+    assert riot.match_fetches == 0
+    assert get_benchmarks(db, "MASTER", "MIDDLE") == {}
+    assert get_benchmarks(db, "MASTER", "TOP") == {}
+    # benchmark_updated_at should still be written (partial harvest counts)
+    assert get_app_state(db, "benchmark_updated_at") is not None
+
+
+@pytest.mark.asyncio
 async def test_run_harvest_unranked_targets_platinum(db, player):
     riot = FakeRiot(solo_rank=None, seed_puuids=["s1"],
                     matches={"NA1_1": _match("BOTTOM")})
