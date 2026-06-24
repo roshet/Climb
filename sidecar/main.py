@@ -20,10 +20,11 @@ from database import (
     AppState,
     PivotalMoment,
     clear_pending_popup, create_goal, delete_goal, delete_pivotal_moments,
-    get_chat_history, get_goals, get_matches,
+    get_app_state, get_benchmarks, get_chat_history, get_goals, get_matches,
     get_pending_popup, get_pivotal_moments, get_player, init_db, save_chat_message,
     save_pivotal_moments, save_player, set_pending_popup,
 )
+from benchmark_harvester import run_harvest, should_harvest
 from goal_metrics import METRICS, metric_catalog
 from goal_tracker import compute_goal_status
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 RIOT_API_KEY = os.environ["RIOT_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 REGION = os.environ.get("REGION", "NA1")
+BENCHMARK_SAMPLE_FLOOR = 30
 
 engine = init_db(os.environ.get("DB_PATH", "analyst.db"))
 db = Session(engine)
@@ -88,6 +90,18 @@ async def backfill_history() -> None:
         _backfill_running = False
 
 
+async def benchmark_harvest_task():
+    await asyncio.sleep(60)  # let first-run backfill take the rate limit first
+    while True:
+        try:
+            player = get_player(db)
+            if player and should_harvest(db, datetime.now(timezone.utc)):
+                await run_harvest(riot, db, player)
+        except Exception as e:
+            logger.error("[benchmark] harvest task error: %s", e)
+        await asyncio.sleep(6 * 3600)
+
+
 async def game_end_watcher():
     """Poll Live Client API. When in-game state drops, trigger analysis."""
     was_in_game = False
@@ -129,6 +143,7 @@ async def lifespan(app: FastAPI):
     global _watcher_task
     _watcher_task = asyncio.create_task(game_end_watcher())
     asyncio.create_task(backfill_history())
+    asyncio.create_task(benchmark_harvest_task())
     live_monitor.start()
     champ_select_monitor.start()
     yield
@@ -385,6 +400,59 @@ def add_goal(req: GoalRequest):
 def remove_goal(goal_id: int):
     delete_goal(db, goal_id)
     return {"ok": True}
+
+
+def _benchmark_status(updated_at: Optional[str], has_data: bool) -> str:
+    if not has_data:
+        return "harvesting"
+    if updated_at:
+        parsed = datetime.fromisoformat(updated_at)
+        if parsed.tzinfo is None:  # tolerate naive timestamps
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - parsed).days > 14:
+            return "stale"
+    return "ready"
+
+
+@app.get("/benchmarks")
+def get_benchmarks_view():
+    recent = get_matches(db, last_n=20)
+    user_tier = get_app_state(db, "benchmark_user_tier")
+    target_tier = get_app_state(db, "benchmark_target_tier")
+    updated_at = get_app_state(db, "benchmark_updated_at")
+
+    if not recent or not target_tier:
+        return {
+            "user_tier": user_tier, "target_tier": target_tier, "role": None,
+            "status": "harvesting" if target_tier else "none",
+            "updated_at": updated_at, "metrics": [],
+        }
+
+    primary_role = Counter(m.role for m in recent).most_common(1)[0][0]
+    role_matches = [m for m in recent if m.role == primary_role]
+    tier_rows = get_benchmarks(db, target_tier, primary_role)
+
+    metrics = []
+    for key, metric in METRICS.items():
+        your_vals = [metric.value(m) for m in role_matches]
+        your_avg = round(sum(your_vals) / len(your_vals), 1) if your_vals else None
+        agg = tier_rows.get(key)
+        if agg and agg[1] >= BENCHMARK_SAMPLE_FLOOR:
+            tier_avg = round(agg[0] / agg[1], 1)
+        else:
+            tier_avg = None
+        metrics.append({
+            "metric_key": key, "label": metric.label, "comparison": metric.comparison,
+            "your_avg": your_avg, "tier_avg": tier_avg,
+            "sample_count": agg[1] if agg else 0,
+        })
+
+    has_data = any(m["tier_avg"] is not None for m in metrics)
+    return {
+        "user_tier": user_tier, "target_tier": target_tier, "role": primary_role,
+        "status": _benchmark_status(updated_at, has_data),
+        "updated_at": updated_at, "metrics": metrics,
+    }
 
 
 @app.get("/player")
