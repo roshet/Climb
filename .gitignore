@@ -9,6 +9,7 @@ __pycache__/
 sidecar/venv/
 *.db
 sidecar/logs/
+logs/
 .pytest_cache/
 .DS_Store
 Thumbs.db
