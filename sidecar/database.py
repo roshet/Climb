@@ -70,6 +70,24 @@ class Goal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class Benchmark(Base):
+    __tablename__ = "benchmarks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_tier: Mapped[str] = mapped_column(String)
+    role: Mapped[str] = mapped_column(String)
+    metric_key: Mapped[str] = mapped_column(String)
+    sum_value: Mapped[float] = mapped_column(Float, default=0.0)
+    sample_count: Mapped[int] = mapped_column(Integer, default=0)
+    patch: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class BenchmarkHarvestedMatch(Base):
+    __tablename__ = "benchmark_harvested_matches"
+    match_id: Mapped[str] = mapped_column(String, primary_key=True)
+    harvested_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 def init_db(db_path: str = "analyst.db") -> Engine:
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
@@ -177,4 +195,65 @@ def get_pending_popup(db: Session) -> Optional[str]:
 
 def clear_pending_popup(db: Session) -> None:
     db.query(AppState).filter(AppState.key == "pending_popup").delete()
+    db.commit()
+
+
+# --- Benchmark queries ---
+
+def record_benchmark_samples(db: Session, target_tier: str, role: str, patch: str,
+                             metrics: dict[str, float]) -> None:
+    now = datetime.now(timezone.utc)
+    for metric_key, value in metrics.items():
+        row = (
+            db.query(Benchmark)
+            .filter(
+                Benchmark.target_tier == target_tier,
+                Benchmark.role == role,
+                Benchmark.metric_key == metric_key,
+                Benchmark.patch == patch,
+            )
+            .first()
+        )
+        if row is None:
+            row = Benchmark(target_tier=target_tier, role=role, metric_key=metric_key,
+                            sum_value=0.0, sample_count=0, patch=patch)
+            db.add(row)
+        row.sum_value += value
+        row.sample_count += 1
+        row.updated_at = now
+    db.commit()
+
+
+def get_benchmarks(db: Session, target_tier: str, role: str) -> dict[str, tuple[float, int]]:
+    rows = (
+        db.query(Benchmark)
+        .filter(Benchmark.target_tier == target_tier, Benchmark.role == role)
+        .all()
+    )
+    out: dict[str, tuple[float, int]] = {}
+    for r in rows:
+        s, c = out.get(r.metric_key, (0.0, 0))
+        out[r.metric_key] = (s + r.sum_value, c + r.sample_count)
+    return out
+
+
+def is_match_harvested(db: Session, match_id: str) -> bool:
+    return db.query(BenchmarkHarvestedMatch).filter(
+        BenchmarkHarvestedMatch.match_id == match_id).first() is not None
+
+
+def mark_match_harvested(db: Session, match_id: str) -> None:
+    db.merge(BenchmarkHarvestedMatch(match_id=match_id))
+    db.commit()
+
+
+# --- Generic app_state ---
+
+def get_app_state(db: Session, key: str) -> Optional[str]:
+    row = db.query(AppState).filter(AppState.key == key).first()
+    return row.value if row else None
+
+
+def set_app_state(db: Session, key: str, value: str) -> None:
+    db.merge(AppState(key=key, value=value))
     db.commit()
