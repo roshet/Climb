@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import create_engine, String, Integer, Float, DateTime, JSON, ForeignKey, Text, Engine, text
@@ -86,6 +87,19 @@ class BenchmarkHarvestedMatch(Base):
     __tablename__ = "benchmark_harvested_matches"
     match_id: Mapped[str] = mapped_column(String, primary_key=True)
     harvested_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class BuildSample(Base):
+    __tablename__ = "build_samples"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    champion: Mapped[str] = mapped_column(String)
+    role: Mapped[str] = mapped_column(String)
+    target_tier: Mapped[str] = mapped_column(String)
+    patch: Mapped[str] = mapped_column(String)
+    kind: Mapped[str] = mapped_column(String)  # "item", "rune_page", "spells"
+    element_id: Mapped[str] = mapped_column(String)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def init_db(db_path: str = "analyst.db") -> Engine:
@@ -257,3 +271,92 @@ def get_app_state(db: Session, key: str) -> Optional[str]:
 def set_app_state(db: Session, key: str, value: str) -> None:
     db.merge(AppState(key=key, value=value))
     db.commit()
+
+
+# --- Build suggestion queries ---
+
+def record_build_samples(db: Session, champion: str, role: str, target_tier: str,
+                         patch: str, build: dict) -> None:
+    now = datetime.now(timezone.utc)
+    entries: list[tuple[str, str]] = []
+    for item_id in build.get("items", []):
+        entries.append(("item", str(item_id)))
+    if build.get("rune_page") is not None:
+        entries.append(("rune_page", build["rune_page"]))
+    if build.get("spells") is not None:
+        entries.append(("spells", build["spells"]))
+    for kind, element_id in entries:
+        row = (
+            db.query(BuildSample)
+            .filter(
+                BuildSample.champion == champion,
+                BuildSample.role == role,
+                BuildSample.target_tier == target_tier,
+                BuildSample.patch == patch,
+                BuildSample.kind == kind,
+                BuildSample.element_id == element_id,
+            )
+            .first()
+        )
+        if row is None:
+            row = BuildSample(champion=champion, role=role, target_tier=target_tier,
+                              patch=patch, kind=kind, element_id=element_id, count=0)
+            db.add(row)
+        row.count += 1
+        row.updated_at = now
+    db.commit()
+
+
+def get_build_suggestions(db: Session, champion: str, role: str, target_tier: str) -> dict:
+    rows = (
+        db.query(BuildSample)
+        .filter(
+            BuildSample.champion == champion,
+            BuildSample.role == role,
+            BuildSample.target_tier == target_tier,
+        )
+        .all()
+    )
+    item_counts: Counter = Counter()
+    rune_page_counts: Counter = Counter()
+    spells_counts: Counter = Counter()
+    for r in rows:
+        if r.kind == "item":
+            item_counts[r.element_id] += r.count
+        elif r.kind == "rune_page":
+            rune_page_counts[r.element_id] += r.count
+        elif r.kind == "spells":
+            spells_counts[r.element_id] += r.count
+    if spells_counts:
+        n_samples = sum(spells_counts.values())
+    elif rune_page_counts:
+        n_samples = sum(rune_page_counts.values())
+    else:
+        n_samples = 0
+    items = [(int(element_id), count) for element_id, count in item_counts.most_common()]
+    rune_page = rune_page_counts.most_common(1)[0] if rune_page_counts else None
+    spells = spells_counts.most_common(1)[0] if spells_counts else None
+    return {
+        "n_samples": n_samples,
+        "items": items,
+        "rune_page": rune_page,
+        "spells": spells,
+    }
+
+
+def most_sampled_role(db: Session, champion: str, target_tier: str) -> Optional[str]:
+    rows = (
+        db.query(BuildSample)
+        .filter(
+            BuildSample.champion == champion,
+            BuildSample.target_tier == target_tier,
+            BuildSample.kind == "spells",
+        )
+        .all()
+    )
+    if not rows:
+        return None
+    role_counts: Counter = Counter()
+    for r in rows:
+        role_counts[r.role] += r.count
+    return role_counts.most_common(1)[0][0]
