@@ -52,6 +52,7 @@ class ChampSelectMonitor:
         self._in_champ_select = False
         self._locked_champion: Optional[str] = None
         self._champ_data: Optional[dict] = None
+        self._assigned_position: Optional[str] = None
         self._task: Optional[asyncio.Task] = None  # type: ignore[type-arg]
 
     def start(self) -> None:
@@ -67,6 +68,7 @@ class ChampSelectMonitor:
             "in_champ_select": self._in_champ_select,
             "locked_champion": self._locked_champion,
             "champ_data": self._champ_data,
+            "assigned_position": self._assigned_position,
         }
 
     def _process_session(self, session: dict, champion_name: Optional[str]) -> None:
@@ -80,6 +82,8 @@ class ChampSelectMonitor:
         player_entry = next((p for p in my_team if p.get("cellId") == local_cell), None)
         if not player_entry:
             return
+
+        self._assigned_position = player_entry.get("assignedPosition") or None
 
         champion_id = player_entry.get("championId", 0)
         if champion_id == 0:
@@ -195,6 +199,7 @@ class ChampSelectMonitor:
                 self._in_champ_select = False
                 self._locked_champion = None
                 self._champ_data = None
+                self._assigned_position = None
             return
 
         if self._locked_champion is None:

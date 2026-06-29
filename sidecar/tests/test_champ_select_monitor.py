@@ -143,3 +143,33 @@ async def test_session_exit_resets_state(monitor, lcu):
     assert monitor._in_champ_select is False
     assert monitor._locked_champion is None
     assert monitor._champ_data is None
+
+
+def test_assigned_position_captured_from_session(monitor):
+    """assignedPosition from LCU session is exposed via get_state()."""
+    session = {
+        "localPlayerCellId": 0,
+        "myTeam": [{"cellId": 0, "championId": 104, "assignedPosition": "middle"}],
+        "actions": [[{
+            "type": "pick",
+            "actorCellId": 0,
+            "completed": True,
+        }]],
+    }
+    monitor._process_session(session, "Graves")
+    assert monitor.get_state()["assigned_position"] == "middle"
+
+
+def test_assigned_position_none_when_blind(monitor):
+    """assignedPosition='' (blind pick) is normalised to None."""
+    session = {
+        "localPlayerCellId": 0,
+        "myTeam": [{"cellId": 0, "championId": 104, "assignedPosition": ""}],
+        "actions": [[{
+            "type": "pick",
+            "actorCellId": 0,
+            "completed": True,
+        }]],
+    }
+    monitor._process_session(session, "Graves")
+    assert monitor.get_state()["assigned_position"] is None

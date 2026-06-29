@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -20,11 +20,12 @@ from database import (
     AppState,
     PivotalMoment,
     clear_pending_popup, create_goal, delete_goal, delete_pivotal_moments,
-    get_app_state, get_benchmarks, get_chat_history, get_goals, get_matches,
-    get_pending_popup, get_pivotal_moments, get_player, init_db, save_chat_message,
-    save_pivotal_moments, save_player, set_pending_popup,
+    get_app_state, get_benchmarks, get_build_suggestions, get_chat_history, get_goals,
+    get_matches, get_pending_popup, get_pivotal_moments, get_player, init_db,
+    most_sampled_role, save_chat_message, save_pivotal_moments, save_player, set_pending_popup,
 )
 from benchmark_harvester import run_harvest, should_harvest
+from build_view import assemble_suggested_build
 from goal_metrics import METRICS, metric_catalog
 from goal_tracker import compute_goal_status
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
@@ -45,6 +46,7 @@ RIOT_API_KEY = os.environ["RIOT_API_KEY"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 REGION = os.environ.get("REGION", "NA1")
 BENCHMARK_SAMPLE_FLOOR = 30
+LCU_ROLE = {"top": "TOP", "jungle": "JUNGLE", "middle": "MIDDLE", "bottom": "BOTTOM", "utility": "UTILITY"}
 
 engine = init_db(os.environ.get("DB_PATH", "analyst.db"))
 db = Session(engine)
@@ -216,13 +218,33 @@ def get_live():
 
 
 @app.get("/champ-select")
-def get_champ_select():
+async def get_champ_select():
     state = dict(champ_select_monitor.get_state())
     if state.get("champ_data") is not None and state.get("locked_champion"):
         state["champ_data"] = dict(state["champ_data"])
         champ_matches = get_matches(db, champion=state["locked_champion"], last_n=50)
         state["champ_data"]["matchups"] = _get_matchup_stats(db, champ_matches, min_games=3, top_n=3)
+        champion = state["locked_champion"]
+        target_tier = get_app_state(db, "benchmark_target_tier")
+        assigned = (state.get("assigned_position") or "").lower()
+        role = LCU_ROLE.get(assigned) or most_sampled_role(db, champion, target_tier)
+        if target_tier and role:
+            raw = get_build_suggestions(db, champion, role, target_tier)
+            state["champ_data"]["suggested_build"] = await assemble_suggested_build(
+                lcu, raw, role, target_tier)
     return state
+
+
+@app.get("/lcu-image")
+async def lcu_image(path: str):
+    if not path.startswith("/lol-game-data/assets"):
+        raise HTTPException(status_code=400, detail="invalid asset path")
+    result = await lcu.get_asset_bytes(path)
+    if result is None:
+        raise HTTPException(status_code=404, detail="asset not found")
+    content, content_type = result
+    return Response(content=content, media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/matchups")
