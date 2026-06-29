@@ -7,9 +7,10 @@ import httpx
 
 from benchmark_metrics import extract_participant_metrics
 from benchmark_tiers import APEX_TIERS, next_tier_up
+from build_extractor import extract_participant_build
 from database import (
     get_app_state, is_match_harvested, mark_match_harvested,
-    record_benchmark_samples, set_app_state,
+    record_benchmark_samples, record_build_samples, set_app_state,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,8 @@ def _accumulate_match(db, target_tier: str, match: dict) -> None:
         if not role:
             continue
         record_benchmark_samples(db, target_tier, role, patch, extract_participant_metrics(p))
+        champion = p.get("championName") or ""
+        record_build_samples(db, champion, role, target_tier, patch, extract_participant_build(p))
 
 
 async def run_harvest(riot, db, player) -> None:
