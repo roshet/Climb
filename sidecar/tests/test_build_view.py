@@ -230,9 +230,9 @@ async def test_items_resolved_with_name_and_icon():
 
 @pytest.mark.asyncio
 async def test_items_truncated_to_six():
-    """Even with 7+ core items in raw, the result is capped at 6."""
+    """With 7 core items in raw (count-desc), keep the top 6 in order; drop the lowest."""
     lcu = _stub_lcu()
-    # All 7 are core items in _stub_items()
+    # All 7 are core items in _stub_items(), already count-desc
     items_raw = [
         (3157, 70), (3089, 65), (3165, 60), (3020, 55),
         (3152, 50), (4628, 45), (3116, 40),
@@ -241,6 +241,13 @@ async def test_items_truncated_to_six():
     result = await assemble_suggested_build(lcu, raw, "MIDDLE", "DIAMOND")
     assert result["status"] == "ready"
     assert len(result["items"]) == 6
+    # The lowest-count core item (3116, count 40) must be dropped
+    returned_ids = [it["id"] for it in result["items"]]
+    assert 3116 not in returned_ids
+    # The kept 6 are the highest-count ones, in count-desc order
+    assert returned_ids == [3157, 3089, 3165, 3020, 3152, 4628]
+    counts = [it["count"] for it in result["items"]]
+    assert counts == sorted(counts, reverse=True)
 
 
 @pytest.mark.asyncio
@@ -363,6 +370,18 @@ async def test_lcu_exception_returns_insufficient():
     raw = _raw(n_samples=50)
     result = await assemble_suggested_build(lcu, raw, "MIDDLE", "DIAMOND")
     assert result["status"] == "insufficient"
+    assert result["items"] == []
+    assert result["runes"] is None
+    assert result["spells"] == []
+
+
+@pytest.mark.asyncio
+async def test_malformed_raw_missing_n_samples_returns_insufficient():
+    """A malformed raw (missing 'n_samples') must not raise — returns insufficient, n_samples 0."""
+    lcu = _stub_lcu()
+    result = await assemble_suggested_build(lcu, {}, "MIDDLE", "DIAMOND")
+    assert result["status"] == "insufficient"
+    assert result["n_samples"] == 0
     assert result["items"] == []
     assert result["runes"] is None
     assert result["spells"] == []

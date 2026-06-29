@@ -101,11 +101,11 @@ async def assemble_suggested_build(lcu, raw: dict, role: str, target_tier: str |
         Dict with "status" == "ready" or "insufficient".  Never raises — any LCU
         failure is caught and returns the insufficient shape.
     """
-    n_samples = raw["n_samples"]
-    if n_samples < BUILD_SAMPLE_FLOOR:
-        return _insufficient(role, target_tier, n_samples)
-
     try:
+        n_samples = raw["n_samples"]
+        if n_samples < BUILD_SAMPLE_FLOOR:
+            return _insufficient(role, target_tier, n_samples)
+
         # ------------------------------------------------------------------ #
         # ITEMS                                                                #
         # ------------------------------------------------------------------ #
@@ -170,4 +170,4 @@ async def assemble_suggested_build(lcu, raw: dict, role: str, target_tier: str |
 
     except Exception as exc:  # noqa: BLE001
         log.debug("assemble_suggested_build failed: %s", exc)
-        return _insufficient(role, target_tier, n_samples)
+        return _insufficient(role, target_tier, raw.get("n_samples", 0))
