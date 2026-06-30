@@ -6,7 +6,7 @@ import {
   ChampSelectFocus as Focus,
   ChampSelectState,
 } from '../shared/types'
-import { getJson } from '../shared/api'
+import { getJson, sidecarUrl } from '../shared/api'
 import { POLL_INTERVAL } from '../shared/constants'
 import '../index.css'
 
@@ -53,7 +53,7 @@ function FocusCard({ focus, champion, coachingSentence }: {
   )
 }
 
-function ChampSelectApp() {
+export function ChampSelectApp() {
   const [state, setState] = useState<ChampSelectState | null>(null)
   const [coachingSentence, setCoachingSentence] = useState<string | null>(null)
   const lockedChampion = state?.locked_champion
@@ -136,10 +136,82 @@ function ChampSelectApp() {
             ))}
           </div>
         )}
+        {champ_data?.suggested_build && (
+          <div className="px-3 py-2 border-t border-white/10">
+            {champ_data.suggested_build.status === 'ready' ? (
+              <>
+                <div className="text-[8px] uppercase tracking-widest text-gray-500 mb-1.5">
+                  high-elo build · {champ_data.suggested_build.role.toLowerCase()}
+                </div>
+                <div className="flex flex-wrap gap-0.5 mb-1.5">
+                  {champ_data.suggested_build.items.map((it, i) =>
+                    it.icon_url ? (
+                      <img
+                        key={`item-${it.id}-${i}`}
+                        src={sidecarUrl(it.icon_url)}
+                        alt={it.name}
+                        title={it.name}
+                        className="w-6 h-6 rounded"
+                      />
+                    ) : (
+                      <div key={`item-${it.id}-${i}`} className="w-6 h-6 rounded bg-gray-800" title={it.name} />
+                    )
+                  )}
+                </div>
+                {champ_data.suggested_build.runes && (
+                  <div className="flex flex-wrap items-center gap-0.5 mb-1.5">
+                    {champ_data.suggested_build.runes.keystone.icon_url ? (
+                      <img
+                        src={sidecarUrl(champ_data.suggested_build.runes.keystone.icon_url)}
+                        alt={champ_data.suggested_build.runes.keystone.name}
+                        title={champ_data.suggested_build.runes.keystone.name}
+                        className="w-7 h-7"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded bg-gray-800" title={champ_data.suggested_build.runes.keystone.name} />
+                    )}
+                    {champ_data.suggested_build.runes.primary_runes.map((r, i) =>
+                      r.icon_url ? (
+                        <img key={`pr-${r.id}-${i}`} src={sidecarUrl(r.icon_url)} alt={r.name} title={r.name} className="w-4 h-4" />
+                      ) : (
+                        <div key={`pr-${r.id}-${i}`} className="w-4 h-4 rounded bg-gray-800" title={r.name} />
+                      )
+                    )}
+                    {champ_data.suggested_build.runes.sub_runes.map((r, i) =>
+                      r.icon_url ? (
+                        <img key={`sr-${r.id}-${i}`} src={sidecarUrl(r.icon_url)} alt={r.name} title={r.name} className="w-4 h-4" />
+                      ) : (
+                        <div key={`sr-${r.id}-${i}`} className="w-4 h-4 rounded bg-gray-800" title={r.name} />
+                      )
+                    )}
+                    {champ_data.suggested_build.runes.stat_shards.map((r, i) =>
+                      r.icon_url ? (
+                        <img key={`ss-${r.id}-${i}`} src={sidecarUrl(r.icon_url)} alt={r.name} title={r.name} className="w-4 h-4" />
+                      ) : (
+                        <div key={`ss-${r.id}-${i}`} className="w-4 h-4 rounded bg-gray-800" title={r.name} />
+                      )
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-0.5">
+                  {champ_data.suggested_build.spells.map((sp, i) =>
+                    sp.icon_url ? (
+                      <img key={`sp-${sp.id}-${i}`} src={sidecarUrl(sp.icon_url)} alt={sp.name} title={sp.name} className="w-5 h-5 rounded" />
+                    ) : (
+                      <div key={`sp-${sp.id}-${i}`} className="w-5 h-5 rounded bg-gray-800" title={sp.name} />
+                    )
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-500 text-xs">Gathering high-elo build data…</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-initRendererLogForwarding()
-createRoot(document.getElementById('root')!).render(<ChampSelectApp />)
+const rootEl = document.getElementById('root')
+if (rootEl) { initRendererLogForwarding(); createRoot(rootEl).render(<ChampSelectApp />) }

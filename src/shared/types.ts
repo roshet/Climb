@@ -114,6 +114,26 @@ export interface ChampSelectFocus {
   champion_specific: boolean
 }
 
+export interface BuildIcon { id: number; name: string; icon_url: string | null }
+export interface BuildItem extends BuildIcon { count: number }
+export interface BuildRunePage {
+  primary_style: BuildIcon
+  keystone: BuildIcon
+  primary_runes: BuildIcon[]   // 3 (the non-keystone primary runes)
+  sub_style: BuildIcon
+  sub_runes: BuildIcon[]        // 2
+  stat_shards: BuildIcon[]      // 3
+}
+export interface SuggestedBuild {
+  status: 'ready' | 'insufficient'
+  role: string
+  target_tier: string | null
+  n_samples: number
+  items: BuildItem[]
+  runes: BuildRunePage | null
+  spells: BuildIcon[]
+}
+
 export interface ChampData {
   games: number
   wins: number
@@ -122,6 +142,7 @@ export interface ChampData {
   patterns: ChampSelectPattern[]
   focus: ChampSelectFocus | null
   matchups?: MatchupEntry[]
+  suggested_build?: SuggestedBuild
 }
 
 export interface ChampSelectState {
