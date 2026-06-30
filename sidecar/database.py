@@ -24,6 +24,9 @@ class Match(Base):
     vision_score: Mapped[int] = mapped_column(Integer)
     raw_timeline: Mapped[dict] = mapped_column(JSON)
     lane_opponent_champion: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    cs_at_10: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    gold_at_10: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    gold_at_14: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     moments: Mapped[list["PivotalMoment"]] = relationship(back_populates="match")
 
 
@@ -112,6 +115,10 @@ def init_db(db_path: str = "analyst.db") -> Engine:
         if "lane_opponent_champion" not in existing_cols:
             conn.execute(text("ALTER TABLE matches ADD COLUMN lane_opponent_champion TEXT"))
             conn.commit()
+        for col in ("cs_at_10", "gold_at_10", "gold_at_14"):
+            if col not in existing_cols:
+                conn.execute(text(f"ALTER TABLE matches ADD COLUMN {col} INTEGER"))
+                conn.commit()
     return engine
 
 

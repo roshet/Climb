@@ -4,6 +4,7 @@ load_dotenv()
 from database import init_db, get_player, Session, set_pending_popup, save_match, save_pivotal_moments
 from riot_client import RiotClient
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
+from timeline_metrics import extract_timeline_metrics
 from datetime import datetime, timezone
 
 SMITE_ID = 11
@@ -58,6 +59,7 @@ async def main():
         'gold_earned': participant['goldEarned'],
         'vision_score': participant['visionScore'],
         'raw_timeline': timeline_data,
+        **extract_timeline_metrics(timeline_data, participant_index),
     })
 
     moments = analyze_timeline(timeline_data, participant_id=participant_index, enemy_jungler_id=enemy_jungler_id, role=role, champion=champion)

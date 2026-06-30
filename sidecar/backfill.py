@@ -9,6 +9,7 @@ from database import (
 )
 from pattern_detector import detect_patterns
 from timeline_analyzer import analyze_timeline, TEAM_100_IDS, TEAM_200_IDS
+from timeline_metrics import extract_timeline_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ async def analyze_and_save_match(
         "vision_score": participant["visionScore"],
         "raw_timeline": timeline_data,
         "lane_opponent_champion": lane_opponent_champion,
+        **extract_timeline_metrics(timeline_data, participant_index),
     })
 
     moments = analyze_timeline(
