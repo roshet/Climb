@@ -237,7 +237,10 @@ async def get_champ_select():
 
 @app.get("/lcu-image")
 async def lcu_image(path: str):
-    if not path.startswith("/lol-game-data/assets"):
+    # SSRF guard: pin to the LCU asset namespace and forbid path traversal, so
+    # this proxy can never reach other (authenticated) LCU endpoints. FastAPI
+    # has already URL-decoded `path`, so a literal ".." check also covers %2e%2e.
+    if not path.startswith("/lol-game-data/assets") or ".." in path:
         raise HTTPException(status_code=400, detail="invalid asset path")
     result = await lcu.get_asset_bytes(path)
     if result is None:

@@ -94,3 +94,13 @@ async def test_lcu_image_rejects_invalid_path(lcu_stub, monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         await main_module.lcu_image(path="/evil")
     assert exc_info.value.status_code == 400
+
+
+async def test_lcu_image_rejects_path_traversal(lcu_stub, monkeypatch):
+    """A '..' traversal that escapes the asset namespace is rejected (SSRF guard)."""
+    with pytest.raises(HTTPException) as exc_info:
+        await main_module.lcu_image(
+            path="/lol-game-data/assets/../../lol-summoner/v1/current-summoner")
+    assert exc_info.value.status_code == 400
+    # the guard must reject before ever touching the LCU client
+    lcu_stub.get_asset_bytes.assert_not_called()

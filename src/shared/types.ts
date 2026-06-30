@@ -149,6 +149,7 @@ export interface ChampSelectState {
   in_champ_select: boolean
   locked_champion: string | null
   champ_data: ChampData | null
+  assigned_position?: string | null
 }
 
 export interface Moment {
