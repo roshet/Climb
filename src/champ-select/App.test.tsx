@@ -72,8 +72,10 @@ describe('ChampSelectApp build block', () => {
     expect(screen.getByRole('img', { name: "Zhonya's Hourglass" })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: "Rabadon's Deathcap" })).toBeInTheDocument()
 
-    // Keystone
+    // Keystone + both tree icons
     expect(screen.getByRole('img', { name: 'Electrocute' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Domination' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Precision' })).toBeInTheDocument()
 
     // Spells
     expect(screen.getByRole('img', { name: 'Flash' })).toBeInTheDocument()
@@ -83,10 +85,10 @@ describe('ChampSelectApp build block', () => {
   it('shows correct item count for ready build', async () => {
     render(<ChampSelectApp />)
     await screen.findByText(/high-elo build/i)
-    // 2 items + 1 keystone + 3 primary runes + 2 sub runes + 3 stat shards + 2 spells = 13 imgs
-    // (primary_style and sub_style icons are not rendered in current impl, only keystone + rune picks)
+    // 2 items + primary_style + keystone + 3 primary runes + sub_style + 2 sub runes
+    // + 3 stat shards + 2 spells = 15 imgs (every fixture icon has a non-null icon_url)
     const allImgs = screen.getAllByRole('img')
-    expect(allImgs.length).toBeGreaterThanOrEqual(2) // at minimum the items
+    expect(allImgs.length).toBe(15)
   })
 
   it('shows gathering text and no item images when status is insufficient', async () => {

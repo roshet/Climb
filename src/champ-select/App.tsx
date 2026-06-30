@@ -160,6 +160,16 @@ export function ChampSelectApp() {
                 </div>
                 {champ_data.suggested_build.runes && (
                   <div className="flex flex-wrap items-center gap-0.5 mb-1.5">
+                    {champ_data.suggested_build.runes.primary_style.icon_url ? (
+                      <img
+                        src={sidecarUrl(champ_data.suggested_build.runes.primary_style.icon_url)}
+                        alt={champ_data.suggested_build.runes.primary_style.name}
+                        title={champ_data.suggested_build.runes.primary_style.name}
+                        className="w-5 h-5"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded bg-gray-800" title={champ_data.suggested_build.runes.primary_style.name} />
+                    )}
                     {champ_data.suggested_build.runes.keystone.icon_url ? (
                       <img
                         src={sidecarUrl(champ_data.suggested_build.runes.keystone.icon_url)}
@@ -176,6 +186,16 @@ export function ChampSelectApp() {
                       ) : (
                         <div key={`pr-${r.id}-${i}`} className="w-4 h-4 rounded bg-gray-800" title={r.name} />
                       )
+                    )}
+                    {champ_data.suggested_build.runes.sub_style.icon_url ? (
+                      <img
+                        src={sidecarUrl(champ_data.suggested_build.runes.sub_style.icon_url)}
+                        alt={champ_data.suggested_build.runes.sub_style.name}
+                        title={champ_data.suggested_build.runes.sub_style.name}
+                        className="w-5 h-5"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded bg-gray-800" title={champ_data.suggested_build.runes.sub_style.name} />
                     )}
                     {champ_data.suggested_build.runes.sub_runes.map((r, i) =>
                       r.icon_url ? (
