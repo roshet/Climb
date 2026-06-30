@@ -21,23 +21,31 @@ def _participant_frame_at_minute(
         return None
 
     try:
-        frames = timeline["info"]["frames"]
-    except (KeyError, TypeError):
-        return None
+        info = timeline.get("info")
+        if not isinstance(info, dict):
+            return None
+        frames = info.get("frames")
+        if not frames or not isinstance(frames, list):
+            return None
 
-    if not frames:
-        return None
+        target_ms = minute * 60_000
+        snapshot = next(
+            (
+                f
+                for f in frames
+                if isinstance(f, dict) and f.get("timestamp", -1) >= target_ms
+            ),
+            None,
+        )
+        if snapshot is None:
+            return None
 
-    target_ms = minute * 60_000
-    snapshot = next(
-        (f for f in frames if f.get("timestamp", -1) >= target_ms),
-        None,
-    )
-    if snapshot is None:
+        pf = snapshot.get("participantFrames")
+        if not isinstance(pf, dict):
+            return None
+        return pf.get(str(participant_id))
+    except (KeyError, TypeError, AttributeError):
         return None
-
-    pf = snapshot.get("participantFrames", {})
-    return pf.get(str(participant_id))
 
 
 def cs_at_minute(timeline: dict, participant_id: int, minute: int) -> int | None:

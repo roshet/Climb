@@ -97,6 +97,51 @@ def test_cs_none_participant_absent_from_frame():
 
 
 # ---------------------------------------------------------------------------
+# Malformed timeline must return None, never raise
+# ---------------------------------------------------------------------------
+
+def test_cs_none_when_participant_frames_not_a_dict():
+    """participantFrames present but a non-dict (list) → None, no AttributeError."""
+    t = make_timeline([
+        {"timestamp": 600_000, "participantFrames": []},
+    ])
+    assert cs_at_minute(t, 1, 10) is None
+
+
+def test_gold_none_when_participant_frames_not_a_dict():
+    t = make_timeline([
+        {"timestamp": 600_000, "participantFrames": "not-a-dict"},
+    ])
+    assert gold_at_minute(t, 1, 10) is None
+
+
+def test_cs_none_when_frame_element_not_a_dict():
+    """A non-dict element inside the frames list must not raise."""
+    t = make_timeline(["not-a-frame", 42])
+    assert cs_at_minute(t, 1, 10) is None
+    assert gold_at_minute(t, 1, 10) is None
+
+
+def test_cs_none_when_info_not_a_dict():
+    assert cs_at_minute({"info": "nope"}, 1, 10) is None
+    assert gold_at_minute({"info": ["nope"]}, 1, 10) is None
+
+
+def test_cs_none_when_frames_not_a_list():
+    assert cs_at_minute({"info": {"frames": "nope"}}, 1, 10) is None
+
+
+def test_extract_metrics_malformed_participant_frames_all_none():
+    t = make_timeline([
+        {"timestamp": 600_000, "participantFrames": []},
+        {"timestamp": 840_000, "participantFrames": []},
+    ])
+    assert extract_timeline_metrics(t, 1) == {
+        "cs_at_10": None, "gold_at_10": None, "gold_at_14": None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # cs_at_minute — string-key access
 # ---------------------------------------------------------------------------
 
