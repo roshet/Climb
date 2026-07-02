@@ -21,6 +21,7 @@ const benchmarks: BenchmarkResponse = {
 const metrics: GoalMetricInfo[] = [
   { key: 'deaths', label: 'Deaths', comparison: 'lte', is_float: false },
   { key: 'cs', label: 'CS', comparison: 'gte', is_float: false },
+  { key: 'cs_at_10', label: 'CS@10', comparison: 'gte', is_float: false },
 ]
 
 const goal: Goal = {
@@ -57,6 +58,7 @@ describe('GoalsPanel', () => {
     render(<GoalsPanel />)
     expect(await screen.findByRole('option', { name: 'Deaths' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'CS' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'CS@10' })).toBeInTheDocument()
   })
 
   it('posts a new goal when Add is clicked', async () => {
