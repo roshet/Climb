@@ -63,3 +63,17 @@ def test_tier_avg_null_below_sample_floor(api_db):
     cs = next(m for m in out["metrics"] if m["metric_key"] == "cs")
     assert cs["tier_avg"] is None
     assert out["status"] == "harvesting"  # no metric cleared the floor yet
+
+
+def test_metrics_exclude_timeline_derived(api_db):
+    """/benchmarks only carries the 5 benchmarkable metrics; timeline-derived ones are excluded."""
+    _save(api_db, "m1", 1, role="MIDDLE", cs=180)
+    set_app_state(api_db, "benchmark_target_tier", "DIAMOND")
+    set_app_state(api_db, "benchmark_updated_at", datetime.now().isoformat())
+    record_benchmark_samples(api_db, "DIAMOND", "MIDDLE", "14.12", {"cs": 250.0})
+    out = main_module.get_benchmarks_view()
+    keys = {m["metric_key"] for m in out["metrics"]}
+    assert keys == {"deaths", "cs", "vision_score", "gold_earned", "kda"}
+    assert "cs_at_10" not in keys
+    assert "gold_at_10" not in keys
+    assert "gold_at_14" not in keys

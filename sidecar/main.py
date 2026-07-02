@@ -459,6 +459,8 @@ def get_benchmarks_view():
 
     metrics = []
     for key, metric in METRICS.items():
+        if not metric.benchmarkable:
+            continue
         your_vals = [metric.value(m) for m in role_matches]
         your_avg = round(sum(your_vals) / len(your_vals), 1) if your_vals else None
         agg = tier_rows.get(key)

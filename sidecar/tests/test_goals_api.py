@@ -39,9 +39,13 @@ def _save(db, mid, day, kda="2/2/2"):
 
 
 def test_metrics_endpoint_lists_all_metrics(api_db):
+    """Goals offers the full catalog, including timeline-derived (non-benchmarkable) metrics."""
     cat = main_module.goal_metrics()
-    assert len(cat) == 5
-    assert {m["key"] for m in cat} == {"deaths", "cs", "vision_score", "gold_earned", "kda"}
+    assert len(cat) == 8
+    assert {m["key"] for m in cat} == {
+        "deaths", "cs", "vision_score", "gold_earned", "kda",
+        "cs_at_10", "gold_at_10", "gold_at_14",
+    }
 
 
 def test_add_unknown_metric_raises_400(api_db):

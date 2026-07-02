@@ -17,6 +17,14 @@ def _participant_to_match_like(p: dict) -> SimpleNamespace:
 
 
 def extract_participant_metrics(participant: dict) -> dict[str, float]:
-    """Float value of every goal metric for one match-v5 participant."""
+    """Float value of every benchmarkable goal metric for one match-v5 participant.
+
+    Timeline-derived metrics (e.g. cs_at_10) aren't computable from a match-v5
+    participant and are excluded via ``GoalMetric.benchmarkable``.
+    """
     obj = _participant_to_match_like(participant)
-    return {key: float(metric.value(obj)) for key, metric in METRICS.items()}
+    return {
+        key: float(metric.value(obj))
+        for key, metric in METRICS.items()
+        if metric.benchmarkable
+    }
