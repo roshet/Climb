@@ -7,22 +7,26 @@ STREAK_WINDOW = 20
 
 def compute_goal_status(db, goal) -> dict:
     matches = get_matches(db, last_n=STREAK_WINDOW)  # newest-first
-    if not matches:
+
+    # Skip matches where the metric doesn't apply (e.g. no timeline data) entirely,
+    # rather than treating them as a miss / streak-breaker.
+    met_newest_first = [goal_met(goal.metric, goal.target, m) for m in matches]
+    applicable_newest_first = [met for met in met_newest_first if met is not None]
+
+    if not applicable_newest_first:
         return {"streak": 0, "history": [], "last_game_met": None, "games_evaluated": 0}
 
-    met_newest_first = [goal_met(goal.metric, goal.target, m) for m in matches]
-
     streak = 0
-    for met in met_newest_first:
+    for met in applicable_newest_first:
         if met:
             streak += 1
         else:
             break
 
-    history = list(reversed(met_newest_first[:HISTORY_WINDOW]))  # oldest -> newest
+    history = list(reversed(applicable_newest_first[:HISTORY_WINDOW]))  # oldest -> newest
     return {
         "streak": streak,
         "history": history,
-        "last_game_met": met_newest_first[0],
-        "games_evaluated": len(matches),
+        "last_game_met": applicable_newest_first[0],
+        "games_evaluated": len(applicable_newest_first),
     }
